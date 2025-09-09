@@ -3,6 +3,7 @@
 
 import { supabase } from '../lib/supabase';
 import { Lead, LeadStatus, FilterTab, LeadDetails, TimelineEvent } from '../types/leads';
+import { getLeadStatusLabel } from '../utils/leadUtils';
 
 export class LeadService {
   // Main query to get leads - show ALL form_sessions with optional CRM data
@@ -492,7 +493,7 @@ export class LeadService {
                                   comment.comment_text.toLowerCase().includes('reassigned');
 
         let eventType: TimelineEvent['type'] = 'comment';
-        let description = comment.comment_text;
+        let description = `Comment at status: ${getLeadStatusLabel(comment.lead_status_at_comment)}`;
 
         if (isStatusChange) {
           eventType = 'status_change';
