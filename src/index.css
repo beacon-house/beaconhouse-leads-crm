@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for Supabase Auth UI */
+.auth-container {
+  width: 100%;
+}
+
+.auth-button {
+  width: 100% !important;
+  justify-content: center !important;
+  font-weight: 500 !important;
+}
+
+.auth-input {
+  width: 100% !important;
+}
+
+.auth-label {
+  margin-bottom: 4px !important;
+  display: block !important;
+}
+
+.auth-message {
+  margin-top: 8px !important;
+  font-size: 14px !important;
+}

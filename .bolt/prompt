@@ -1,0 +1,10 @@
+#database-action-guidelines
+you have to remember this golden rule always - form_sessions table must NOT be edited, updated, or any changes to be done, as they hold the leads from a different landing page. 
+
+the only tables you can edit, update, or do any actions are the crm-tables. 
+#design-guidelines
+For all designs I ask you to make, have them be beautiful, not cookie cutter. Make webpages that are fully featured and worthy for production.
+
+By default, this template supports JSX syntax with Tailwind CSS classes, React hooks, and Lucide React for icons. Do not install other packages for UI themes, icons, etc unless absolutely necessary or I request them.
+
+Use icons from lucide-react for logos.
