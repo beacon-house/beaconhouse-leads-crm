@@ -170,7 +170,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
           {/* Content */}
           <div className="flex flex-col lg:flex-row h-full" style={{ maxHeight: 'calc(95vh - 80px)' }}>
             {/* Left Pane - Lead Information & Actions */}
-            <div className="w-full lg:w-2/5 border-r border-gray-200 overflow-y-auto">
+            <div className="w-full lg:w-2/5 border-r border-gray-200">
               {isLoading ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -190,11 +190,11 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                   </button>
                 </div>
               ) : leadDetails ? (
-                <div className="p-6 space-y-6">
+                <div className="p-4 space-y-4">
                   {/* Quick Actions */}
-                  <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="bg-blue-50 rounded-lg p-3">
                     <h3 className="font-medium text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Lead Status
@@ -226,8 +226,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                       <User className="w-5 h-5 text-blue-600 mr-2" />
                       <h3 className="font-medium text-gray-900">Student Information</h3>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
                           <span className="text-sm text-gray-600">Name:</span>
                           <p className="font-medium">{leadDetails.student_name || '-'}</p>
@@ -254,12 +254,12 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                       <GraduationCap className="w-5 h-5 text-green-600 mr-2" />
                       <h3 className="font-medium text-gray-900">Academic Details</h3>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                       <div>
                         <span className="text-sm text-gray-600">Curriculum:</span>
                         <p className="font-medium">{leadDetails.curriculum_type || '-'}</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
                           <span className="text-sm text-gray-600">Format:</span>
                           <p className="font-medium">{leadDetails.grade_format || '-'}</p>
@@ -285,7 +285,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                       <Phone className="w-5 h-5 text-orange-600 mr-2" />
                       <h3 className="font-medium text-gray-900">Contact Information</h3>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                       <div>
                         <span className="text-sm text-gray-600">Parent Name:</span>
                         <p className="font-medium">{leadDetails.parent_name || '-'}</p>
@@ -303,7 +303,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                       <Heart className="w-5 h-5 text-purple-600 mr-2" />
                       <h3 className="font-medium text-gray-900">Study Preferences</h3>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                       <div>
                         <span className="text-sm text-gray-600">Scholarship:</span>
                         <p className="font-medium">{leadDetails.scholarship_requirement || '-'}</p>
@@ -333,8 +333,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                       <Settings className="w-5 h-5 text-gray-600 mr-2" />
                       <h3 className="font-medium text-gray-900">System Information</h3>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
                           <span className="text-sm text-gray-600">Category:</span>
                           <p className="font-medium">{leadDetails.lead_category || '-'}</p>
@@ -348,7 +348,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                         <span className="text-sm text-gray-600">Funnel Stage:</span>
                         <p className="font-medium text-xs">{leadDetails.funnel_stage || '-'}</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
                           <span className="text-sm text-gray-600">Qualified:</span>
                           <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
