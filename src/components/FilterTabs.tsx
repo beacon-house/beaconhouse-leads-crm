@@ -36,9 +36,9 @@ const FilterTabs: React.FC<FilterTabsProps> = ({
     },
     { 
       id: 'qualified' as const, 
-      label: 'Qualified Leads', 
+      label: 'Qualified - Action Needed', 
       count: leadCounts.qualified,
-      description: 'lead_category IN (\'bch\', \'lum-l1\', \'lum-l2\')'
+      description: 'Qualified leads who have not yet completed the form submission'
     },
     { 
       id: 'counseling_booked' as const, 
