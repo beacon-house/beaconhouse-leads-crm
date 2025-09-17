@@ -8,6 +8,7 @@ import StatusDropdown from './StatusDropdown';
 import CounselorAssignment from './CounselorDropdown';
 import ReassignmentModal from './ReassignmentModal';
 import BulkAssignmentModal from './BulkAssignmentModal';
+import { formatLeadCreatedAtDisplay } from '../utils/leadUtils';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -167,6 +168,14 @@ const MobileLeadCard: React.FC<{
                     <span className="text-gray-900 truncate" title={lead.parent_email || ''}>
                       {lead.parent_email || '-'}
                     </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date Created:</span>
+                    <span className="text-gray-900">{formatLeadCreatedAtDisplay(lead.created_at).date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Time Created (IST):</span>
+                    <span className="text-gray-900">{formatLeadCreatedAtDisplay(lead.created_at).time}</span>
                   </div>
                 </div>
               </div>
@@ -406,6 +415,8 @@ const DesktopLeadsTable: React.FC<{
                   <div className="text-xs text-gray-600">Grade: {lead.current_grade || '-'}</div>
                   <div className="text-xs text-gray-600">Filler: {lead.form_filler_type || '-'}</div>
                   <div className="text-xs text-gray-600">Phone: {lead.phone_number || '-'}</div>
+                  <div className="text-xs text-gray-600">Created: {formatLeadCreatedAtDisplay(lead.created_at).date}</div>
+                  <div className="text-xs text-gray-600">Time (IST): {formatLeadCreatedAtDisplay(lead.created_at).time}</div>
                 </div>
               </td>
               

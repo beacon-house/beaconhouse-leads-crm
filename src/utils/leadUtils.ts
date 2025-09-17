@@ -23,3 +23,37 @@ export function getLeadStatusLabel(status: LeadStatus): string {
 
   return statusMap[status] || status.replace(/_/g, ' ').replace(/^\d+\s/, '');
 }
+
+/**
+ * Format lead creation timestamp for display
+ * Converts UTC timestamp to IST and formats for user-friendly display
+ * @param utcTimestamp - UTC timestamp string from database (e.g., '2025-09-17 09:04:01.99749+00')
+ * @returns Object with formatted date and time strings
+ */
+export function formatLeadCreatedAtDisplay(utcTimestamp: string): {
+  date: string;
+  time: string;
+} {
+  const date = new Date(utcTimestamp);
+  
+  // Format date as "25 Aug, 2025"
+  const formattedDate = date.toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+  
+  // Format time as "04:30 PM" in IST
+  const formattedTime = date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  });
+  
+  return {
+    date: formattedDate,
+    time: formattedTime
+  };
+}
