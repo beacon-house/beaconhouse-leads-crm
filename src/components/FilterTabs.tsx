@@ -44,7 +44,7 @@ const FilterTabs: React.FC<FilterTabsProps> = ({
       id: 'counseling_booked' as const, 
       label: 'Counseling Booked', 
       count: leadCounts.counseling_booked,
-      description: 'funnel_stage IN (\'08_page_2_counselling_slot_selected\', \'counseling_booked_legacy_26_aug\')'
+      description: 'Leads who have both booked counseling and completed form submission'
     },
     { 
       id: 'unassigned' as const, 
