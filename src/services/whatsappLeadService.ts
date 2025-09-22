@@ -62,7 +62,7 @@ export class WhatsappLeadService {
       // Insert new WhatsApp lead entries
       const { error: insertError } = await supabase
         .from('whatsapp_leads')
-        .insert(newWhatsappLeads);
+        .insert(newWhatsappLeads, { ignoreDuplicates: true });
 
       if (insertError) {
         console.error('Error inserting WhatsApp leads:', insertError);
