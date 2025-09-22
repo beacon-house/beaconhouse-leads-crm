@@ -30,6 +30,18 @@ export interface Lead {
   assigned_counselor_name: string | null;
   assigned_counselor_email: string | null;
   
+  // WhatsApp-related fields (from LEFT JOIN with whatsapp_leads)
+  whatsapp_id: string | null;
+  whatsapp_status: string | null;
+  export_date: string | null;
+  last_message_date: string | null;
+  exported_by: string | null;
+  exported_by_name: string | null;
+  exported_by_email: string | null;
+  whatsapp_notes: string | null;
+  whatsapp_created_at: string | null;
+  whatsapp_updated_at: string | null;
+  
   // Additional form_sessions fields for grouped view
   form_filler_type: string | null;
   grade_format: string | null;
