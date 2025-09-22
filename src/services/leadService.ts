@@ -31,10 +31,14 @@ export class LeadService {
         query = query.in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
         break;
       case 'qualified':
-        query = query.in('lead_category', ['bch', 'lum-l1', 'lum-l2']);
+        query = query
+          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
+          .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")');
         break;
       case 'counseling_booked':
-        query = query.eq('is_counselling_booked', true);
+        query = query
+          .eq('is_counselling_booked', true)
+          .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
         break;
       case 'unassigned':
         // Filter to show only leads without counselor assignment
@@ -315,12 +319,14 @@ export class LeadService {
         // Qualified leads
         supabase.from('form_sessions')
           .select('id', { count: 'exact' })
-          .in('lead_category', ['bch', 'lum-l1', 'lum-l2']),
+          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
+          .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")'),
         
         // Counseling booked
         supabase.from('form_sessions')
           .select('id', { count: 'exact' })
-          .eq('is_counselling_booked', true),
+          .eq('is_counselling_booked', true)
+          .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']),
       ]);
       
       // Calculate unassigned leads separately using a different approach

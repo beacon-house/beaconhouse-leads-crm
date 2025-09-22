@@ -5,6 +5,7 @@ import { User, GraduationCap, Heart, Phone, Calendar, Settings, TrendingUp, Chev
 
 import { Lead } from '../types/leads';
 import StatusDropdown from './StatusDropdown';
+import { formatLeadCreatedAtDisplay } from '../utils/leadUtils';
 
 interface GroupedLeadsViewProps {
   leads: Lead[];
@@ -143,6 +144,14 @@ Lead Details:
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Phone:</span>
                     <span className="text-sm text-gray-900">{lead.phone_number || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Date Created:</span>
+                    <span className="text-sm text-gray-900">{formatLeadCreatedAtDisplay(lead.created_at).date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Time Created (IST):</span>
+                    <span className="text-sm text-gray-900">{formatLeadCreatedAtDisplay(lead.created_at).time}</span>
                   </div>
                 </div>
               </div>

@@ -8,6 +8,8 @@ import { LeadService } from '../services/leadService';
 import StatusDropdown from './StatusDropdown';
 import CounselorAssignment from './CounselorDropdown';
 import ReassignmentModal from './ReassignmentModal';
+import { formatLeadCreatedAtDisplay } from '../utils/leadUtils';
+import { supabase } from '../lib/supabase';
 
 interface LeadDetailsModalProps {
   isOpen: boolean;
@@ -243,6 +245,14 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                         <div>
                           <span className="text-sm text-gray-600">Phone:</span>
                           <p className="font-medium">{leadDetails.phone_number || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">Date Created:</span>
+                          <p className="font-medium">{formatLeadCreatedAtDisplay(leadDetails.created_at).date}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">Time Created (IST):</span>
+                          <p className="font-medium">{formatLeadCreatedAtDisplay(leadDetails.created_at).time}</p>
                         </div>
                       </div>
                     </div>

@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Users, LogOut } from 'lucide-react';
+import { Users, LogOut, MessageSquare } from 'lucide-react';
 
 import FilterTabs from './components/FilterTabs';
 import LeadsTable from './components/LeadsTable';
 import CommentModal from './components/CommentModal';
 import LeadDetailsModal from './components/LeadDetailsModal';
+import WhatsappOperationsView from './components/WhatsappOperationsView';
 import { Lead, FilterTab } from './types/leads';
 import { LeadService } from './services/leadService';
 import { useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
 
+type AppView = 'lead_management' | 'whatsapp_operations';
+
 function App() {
   const { user, session, loading, signOut } = useAuth();
+  const [currentView, setCurrentView] = useState<AppView>('lead_management');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -247,9 +251,35 @@ function App() {
                   Beacon House CRM
                 </h1>
                 <p className="text-xs lg:text-sm text-gray-600 truncate">
-                  Lead Management System
+                  {currentView === 'lead_management' ? 'Lead Management System' : 'WhatsApp Operations'}
                 </p>
               </div>
+            </div>
+
+            {/* View Toggle - Desktop */}
+            <div className="hidden md:flex items-center space-x-1 bg-gray-100 rounded-lg p-1 mr-4">
+              <button
+                onClick={() => setCurrentView('lead_management')}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentView === 'lead_management'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Users className="w-4 h-4 inline mr-1" />
+                Lead Management
+              </button>
+              <button
+                onClick={() => setCurrentView('whatsapp_operations')}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentView === 'whatsapp_operations'
+                    ? 'bg-white text-green-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4 inline mr-1" />
+                WhatsApp
+              </button>
             </div>
             
             {/* Desktop User Info */}
@@ -275,6 +305,31 @@ function App() {
             {/* Mobile User Avatar Only */}
             <div className="sm:hidden flex-shrink-0">
               <div className="flex items-center space-x-2">
+                {/* Mobile View Toggle */}
+                <div className="flex space-x-1">
+                  <button
+                    onClick={() => setCurrentView('lead_management')}
+                    className={`p-2 rounded-md transition-colors ${
+                      currentView === 'lead_management'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                    title="Lead Management"
+                  >
+                    <Users className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('whatsapp_operations')}
+                    className={`p-2 rounded-md transition-colors ${
+                      currentView === 'whatsapp_operations'
+                        ? 'bg-green-100 text-green-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                    title="WhatsApp Operations"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </button>
+                </div>
                 <button
                   onClick={handleSignOut}
                   className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -295,30 +350,42 @@ function App() {
 
       {/* Main Content Container */}
       <div className="flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
-        {/* Sticky Filter Tabs */}
-        <div className="bg-white sticky top-16 z-10 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
-            <FilterTabs 
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              leadCounts={leadCounts}
-            />
-          </div>
-        </div>
+        {/* Conditional Content Based on Current View */}
+        {currentView === 'lead_management' ? (
+          <>
+            {/* Sticky Filter Tabs */}
+            <div className="bg-white sticky top-16 z-10 border-b border-gray-200">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
+                <FilterTabs 
+                  activeTab={activeTab}
+                  onTabChange={handleTabChange}
+                  leadCounts={leadCounts}
+                />
+              </div>
+            </div>
 
-        {/* Scrollable Content Area - Now with more space */}
-        <div className="flex-1 bg-gray-50" style={{ height: 'calc(100vh - 128px)' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 h-full">
-            <LeadsTable 
-              leads={leads}
-              isLoading={isLoadingData}
-              onStatusChange={handleStatusChangeRequest}
-              onCounselorChange={handleCounselorChangeRequest}
-              onBulkAssign={handleBulkAssign}
-              onRowClick={handleRowClick}
-            />
-          </div>
-        </div>
+            {/* Scrollable Content Area - Now with more space */}
+            <div className="flex-1 bg-gray-50" style={{ height: 'calc(100vh - 128px)' }}>
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 h-full">
+                <LeadsTable 
+                  leads={leads}
+                  isLoading={isLoadingData}
+                  onStatusChange={handleStatusChangeRequest}
+                  onCounselorChange={handleCounselorChangeRequest}
+                  onBulkAssign={handleBulkAssign}
+                  onRowClick={handleRowClick}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* WhatsApp Operations View */}
+            <div className="flex-1 bg-gray-50">
+              <WhatsappOperationsView />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Comment Modal */}
