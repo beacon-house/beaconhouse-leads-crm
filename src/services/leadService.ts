@@ -158,7 +158,7 @@ export class LeadService {
       .from('crm_leads')
       .select('id')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     if (!existingLead) {
       console.log('Creating new CRM lead entry');
@@ -228,7 +228,7 @@ export class LeadService {
       .from('crm_leads')
       .select('id')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     console.log(`🔍 Existing CRM lead check:`, existingLead);
     if (!existingLead) {
@@ -270,7 +270,7 @@ export class LeadService {
       .from('crm_leads')
       .select('lead_status')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     console.log('💬 Adding assignment comment for lead status:', currentLead?.lead_status);
     const { error: commentError } = await supabase
