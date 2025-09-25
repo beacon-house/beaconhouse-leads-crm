@@ -88,9 +88,17 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
       bgColor: 'bg-green-100'
     },
     { 
+      value: '07_followup_call_requested', 
+      label: 'Follow-up Call Requested', 
+      stage: 8,
+      icon: <Phone className="w-4 h-4" />,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    { 
       value: '07a_followup_call_requested_vishy', 
       label: 'Follow-up Call (Vishy)', 
-      stage: 8,
+      stage: 9,
       icon: <Phone className="w-4 h-4" />,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
@@ -98,15 +106,15 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '07b_followup_call_requested_karthik', 
       label: 'Follow-up Call (Karthik)', 
-      stage: 9,
+      stage: 10,
       icon: <Phone className="w-4 h-4" />,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
     },
     { 
-      value: '07c_followup_call_requested_kg', 
-      label: 'Follow-up Call (KG)', 
-      stage: 10,
+      value: '07c_followup_call_requested_matt', 
+      label: 'Follow-up Call (Matt)', 
+      stage: 11,
       icon: <Phone className="w-4 h-4" />,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
@@ -114,7 +122,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '08_interest_exploration', 
       label: 'Interest Exploration', 
-      stage: 11,
+      stage: 12,
       icon: <Search className="w-4 h-4" />,
       color: 'text-pink-600',
       bgColor: 'bg-pink-100'
@@ -122,7 +130,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '09_price_negotiation', 
       label: 'Price Negotiation', 
-      stage: 12,
+      stage: 13,
       icon: <DollarSign className="w-4 h-4" />,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100'
@@ -130,7 +138,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '10_converted', 
       label: 'Converted', 
-      stage: 13,
+      stage: 14,
       icon: <CheckCircle2 className="w-4 h-4" />,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100'
@@ -138,7 +146,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '11_drop', 
       label: 'Dropped', 
-      stage: 14,
+      stage: 15,
       icon: <X className="w-4 h-4" />,
       color: 'text-red-600',
       bgColor: 'bg-red-100'
@@ -146,7 +154,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '12_conversion_followup', 
       label: 'Conversion Follow-up', 
-      stage: 15,
+      stage: 16,
       icon: <ArrowRight className="w-4 h-4" />,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-100'
@@ -213,7 +221,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
                }}>
             <div className="p-2">
               <div className="text-xs font-medium text-gray-500 px-3 py-2 border-b border-gray-100 mb-2">
-                Lead Status Progression (15 Stages Total)
+                Lead Status Progression (16 Stages Total)
               </div>
               
               {/* Current Status - Always shown first */}
