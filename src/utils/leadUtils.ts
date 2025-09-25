@@ -15,10 +15,17 @@ export function getLeadStatusLabel(status: LeadStatus): string {
     '03_counselling_call_booked': 'Counselling Call Booked',
     '04_counselling_call_rescheduled': 'Counselling Call Rescheduled',
     '05_counselling_call_no_show': 'Counselling Call No Show',
+    '05b_to_be_rescheduled': 'To Be Rescheduled',
     '06_counselling_call_done': 'Counselling Call Done',
     '07_followup_call_requested': 'Follow-up Call Requested',
-    '08_interest_intent_received': 'Interest Intent Received',
-    '09_converted_paid': 'Converted & Paid',
+    '07a_followup_call_requested_vishy': 'Follow-up Call (Vishy)',
+    '07b_followup_call_requested_karthik': 'Follow-up Call (Karthik)',
+    '07c_followup_call_requested_matt': 'Follow-up Call (Matt)',
+    '08_interest_exploration': 'Interest Exploration',
+    '09_price_negotiation': 'Price Negotiation',
+    '10_converted': 'Converted',
+    '11_drop': 'Dropped',
+    '12_conversion_followup': 'Conversion Follow-up',
   };
 
   return statusMap[status] || status.replace(/_/g, ' ').replace(/^\d+\s/, '');

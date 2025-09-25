@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { ChevronDown, Target, Phone, Calendar, UserX, CheckCircle, MessageCircle, Heart, DollarSign } from 'lucide-react';
+import { ChevronDown, Target, Phone, Calendar, UserX, CheckCircle, MessageCircle, Heart, DollarSign, RotateCcw, Search, CheckCircle2, X, ArrowRight } from 'lucide-react';
 // Enhanced status dropdown component with stage progression and user-friendly labels
 // Shows clear visual progression through the CRM workflow stages
 
@@ -72,9 +72,17 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
       bgColor: 'bg-red-100'
     },
     { 
+      value: '05b_to_be_rescheduled', 
+      label: 'To Be Rescheduled', 
+      stage: 6,
+      icon: <RotateCcw className="w-4 h-4" />,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100'
+    },
+    { 
       value: '06_counselling_call_done', 
       label: 'Counselling Call Completed', 
-      stage: 6,
+      stage: 7,
       icon: <CheckCircle className="w-4 h-4" />,
       color: 'text-green-600',
       bgColor: 'bg-green-100'
@@ -82,26 +90,74 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
     { 
       value: '07_followup_call_requested', 
       label: 'Follow-up Call Requested', 
-      stage: 7,
+      stage: 8,
       icon: <Phone className="w-4 h-4" />,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
     },
     { 
-      value: '08_interest_intent_received', 
-      label: 'Interest Intent Received', 
-      stage: 8,
-      icon: <Heart className="w-4 h-4" />,
+      value: '07a_followup_call_requested_vishy', 
+      label: 'Follow-up Call (Vishy)', 
+      stage: 9,
+      icon: <Phone className="w-4 h-4" />,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    { 
+      value: '07b_followup_call_requested_karthik', 
+      label: 'Follow-up Call (Karthik)', 
+      stage: 10,
+      icon: <Phone className="w-4 h-4" />,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    { 
+      value: '07c_followup_call_requested_matt', 
+      label: 'Follow-up Call (Matt)', 
+      stage: 11,
+      icon: <Phone className="w-4 h-4" />,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    { 
+      value: '08_interest_exploration', 
+      label: 'Interest Exploration', 
+      stage: 12,
+      icon: <Search className="w-4 h-4" />,
       color: 'text-pink-600',
       bgColor: 'bg-pink-100'
     },
     { 
-      value: '09_converted_paid', 
-      label: 'Converted & Paid', 
-      stage: 9,
+      value: '09_price_negotiation', 
+      label: 'Price Negotiation', 
+      stage: 13,
       icon: <DollarSign className="w-4 h-4" />,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100'
+    },
+    { 
+      value: '10_converted', 
+      label: 'Converted', 
+      stage: 14,
+      icon: <CheckCircle2 className="w-4 h-4" />,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100'
+    },
+    { 
+      value: '11_drop', 
+      label: 'Dropped', 
+      stage: 15,
+      icon: <X className="w-4 h-4" />,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100'
+    },
+    { 
+      value: '12_conversion_followup', 
+      label: 'Conversion Follow-up', 
+      stage: 16,
+      icon: <ArrowRight className="w-4 h-4" />,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100'
     },
   ];
 
@@ -165,7 +221,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({
                }}>
             <div className="p-2">
               <div className="text-xs font-medium text-gray-500 px-3 py-2 border-b border-gray-100 mb-2">
-                Lead Status Progression (9 Stages Total)
+                Lead Status Progression (16 Stages Total)
               </div>
               
               {/* Current Status - Always shown first */}

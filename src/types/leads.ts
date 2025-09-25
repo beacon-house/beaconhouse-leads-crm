@@ -65,10 +65,17 @@ export type LeadStatus =
   | '03_counselling_call_booked'
   | '04_counselling_call_rescheduled'
   | '05_counselling_call_no_show'
+  | '05b_to_be_rescheduled'
   | '06_counselling_call_done'
   | '07_followup_call_requested'
-  | '08_interest_intent_received'
-  | '09_converted_paid';
+  | '07a_followup_call_requested_vishy'
+  | '07b_followup_call_requested_karthik'
+  | '07c_followup_call_requested_matt'
+  | '08_interest_exploration'
+  | '09_price_negotiation'
+  | '10_converted'
+  | '11_drop'
+  | '12_conversion_followup';
 
 export type FilterTab = 'all' | 'form_completions' | 'qualified' | 'counseling_booked';
 export type FilterTab = 'all' | 'form_completions' | 'qualified' | 'counseling_booked' | 'unassigned';
