@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, LogOut, MessageSquare } from 'lucide-react';
+import { Users, LogOut, MessageSquare, Settings } from 'lucide-react';
 
 import FilterTabs from './components/FilterTabs';
 import LeadsTable from './components/LeadsTable';
@@ -429,6 +429,25 @@ function App() {
             {/* WhatsApp Operations View */}
             <div className="flex-1 bg-gray-50">
               <WhatsappOperationsView />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Admin Rules Management View */}
+            <div className="flex-1 bg-gray-50">
+              <AdminRulesManagementView />
+            </div>
+          </>
+        )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Admin Rules Management View */}
+            <div className="flex-1 bg-gray-50">
+              <AdminRulesManagementView />
+            </div>
+          </>
         )}
       </div>
 
