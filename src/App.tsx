@@ -431,6 +431,13 @@ function App() {
               <WhatsappOperationsView />
             </div>
           </>
+        ) : (
+          <>
+            {/* Admin Rules Management View */}
+            <div className="flex-1 bg-gray-50">
+              <AdminRulesManagementView />
+            </div>
+          </>
         )}
       </div>
 
