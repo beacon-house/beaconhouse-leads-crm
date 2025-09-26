@@ -424,20 +424,11 @@ function App() {
               </div>
             </div>
           </>
-        ) : (
+        ) : currentView === 'whatsapp_operations' ? (
           <>
             {/* WhatsApp Operations View */}
             <div className="flex-1 bg-gray-50">
               <WhatsappOperationsView />
-            </div>
-          </>
-        ) : currentView === 'admin_rules' ? (
-          <>
-            {/* Admin Rules Management View */}
-            <div className="flex-1 bg-gray-50">
-              <AdminRulesManagementView />
-            </div>
-          </>
         )}
       </div>
 
