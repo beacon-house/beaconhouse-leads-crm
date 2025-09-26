@@ -2,7 +2,7 @@
 // Shows all rules with their status, triggers, assignments, and actions
 
 import React from 'react';
-import { Edit, Trash2, ToggleLeft, ToggleRight, Crown, Users, User, Calendar, Tag, Target } from 'lucide-react';
+import { CreditCard as Edit, Trash2, ToggleLeft, ToggleRight, Crown, Users, User, Calendar, Tag, Target } from 'lucide-react';
 import { AssignmentRule } from '../types/assignmentRules';
 import { getLeadStatusLabel } from '../utils/leadUtils';
 
