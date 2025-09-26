@@ -3,6 +3,7 @@
 
 import { supabase } from '../lib/supabase';
 import { Lead, LeadStatus, FilterTab, LeadDetails, TimelineEvent } from '../types/leads';
+import { AssignmentRuleService } from './assignmentRuleService';
 import { getLeadStatusLabel } from '../utils/leadUtils';
 
 export class LeadService {
@@ -153,23 +154,55 @@ export class LeadService {
     ];
     const shouldUpdateLastContacted = isContactInteraction || contactStatuses.includes(newStatus);
 
+    // Get lead category from form_sessions for auto-assignment
+    const { data: formSession } = await supabase
+      .from('form_sessions')
+      .select('lead_category')
+      .eq('session_id', sessionId)
+      .single();
+
+    const leadCategory = formSession?.lead_category || null;
+
     // First, check if lead exists in crm_leads
     const { data: existingLead } = await supabase
       .from('crm_leads')
       .select('id')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
+
+    // Find matching assignment rule for auto-assignment
+    let autoAssignedCounselor: string | null = null;
+    let autoAssignmentRuleName: string | null = null;
+    
+    try {
+      const matchingRule = await AssignmentRuleService.findMatchingRule(leadCategory, newStatus);
+      if (matchingRule) {
+        autoAssignedCounselor = matchingRule.assigned_counselor_id;
+        autoAssignmentRuleName = matchingRule.rule_name;
+        console.log(`🎯 Auto-assignment rule matched: ${autoAssignmentRuleName} → ${matchingRule.assigned_counselor_name}`);
+      }
+    } catch (error) {
+      console.error('Error finding assignment rule:', error);
+      // Continue without auto-assignment if rule lookup fails
+    }
 
     if (!existingLead) {
       console.log('Creating new CRM lead entry');
       // Create new crm_lead if it doesn't exist
+      const insertData: any = {
+        session_id: sessionId,
+        lead_status: newStatus,
+        last_contacted: shouldUpdateLastContacted ? new Date().toISOString() : null,
+      };
+      
+      // Apply auto-assignment if rule found and no manual assignment
+      if (autoAssignedCounselor) {
+        insertData.assigned_to = autoAssignedCounselor;
+      }
+      
       const { error: insertError } = await supabase
         .from('crm_leads')
-        .insert({
-          session_id: sessionId,
-          lead_status: newStatus,
-          last_contacted: shouldUpdateLastContacted ? new Date().toISOString() : null,
-        });
+        .insert(insertData);
 
       if (insertError) {
         console.error('Error creating crm_lead:', insertError);
@@ -186,6 +219,17 @@ export class LeadService {
         updateData.last_contacted = new Date().toISOString();
       }
       
+      // Apply auto-assignment if rule found and lead is currently unassigned
+      const { data: currentLead } = await supabase
+        .from('crm_leads')
+        .select('assigned_to')
+        .eq('session_id', sessionId)
+        .single();
+        
+      if (autoAssignedCounselor && !currentLead?.assigned_to) {
+        updateData.assigned_to = autoAssignedCounselor;
+      }
+      
       const { error: updateError } = await supabase
         .from('crm_leads')
         .update(updateData)
@@ -194,6 +238,23 @@ export class LeadService {
       if (updateError) {
         console.error('Error updating lead status:', updateError);
         throw updateError;
+      }
+    }
+
+    // Add auto-assignment comment if assignment was made
+    if (autoAssignedCounselor && autoAssignmentRuleName) {
+      const { error: autoCommentError } = await supabase
+        .from('crm_comments')
+        .insert({
+          session_id: sessionId,
+          counselor_id: counselorId,
+          comment_text: `Auto-assigned by rule: ${autoAssignmentRuleName}`,
+          lead_status_at_comment: newStatus,
+        });
+
+      if (autoCommentError) {
+        console.error('Error adding auto-assignment comment:', autoCommentError);
+        // Don't throw here as main operation succeeded
       }
     }
 
@@ -228,7 +289,7 @@ export class LeadService {
       .from('crm_leads')
       .select('id')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     console.log(`🔍 Existing CRM lead check:`, existingLead);
     if (!existingLead) {
@@ -270,7 +331,7 @@ export class LeadService {
       .from('crm_leads')
       .select('lead_status')
       .eq('session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     console.log('💬 Adding assignment comment for lead status:', currentLead?.lead_status);
     const { error: commentError } = await supabase

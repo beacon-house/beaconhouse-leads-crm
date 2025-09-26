@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Users, LogOut, MessageSquare } from 'lucide-react';
+import { Users, LogOut, MessageSquare, Settings } from 'lucide-react';
 
 import FilterTabs from './components/FilterTabs';
 import LeadsTable from './components/LeadsTable';
 import CommentModal from './components/CommentModal';
 import LeadDetailsModal from './components/LeadDetailsModal';
 import WhatsappOperationsView from './components/WhatsappOperationsView';
+import AdminRulesManagementView from './components/AdminRulesManagementView';
 import { Lead, FilterTab } from './types/leads';
 import { LeadService } from './services/leadService';
 import { useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
+import { supabase } from './lib/supabase';
 
-type AppView = 'lead_management' | 'whatsapp_operations';
+type AppView = 'lead_management' | 'whatsapp_operations' | 'admin_rules';
 
 function App() {
   const { user, session, loading, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>('lead_management');
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -44,6 +47,36 @@ function App() {
     isOpen: false,
     sessionId: null,
   });
+
+  // Fetch user role when session changes
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!session?.user?.id) {
+        setUserRole(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('counselors')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user role:', error);
+          setUserRole(null);
+        } else {
+          setUserRole(data?.role || null);
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole(null);
+      }
+    };
+
+    fetchUserRole();
+  }, [session]);
 
   // Fetch leads from Supabase (joins form_sessions with crm_leads and counselors)
   useEffect(() => {
@@ -280,6 +313,19 @@ function App() {
                 <MessageSquare className="w-4 h-4 inline mr-1" />
                 WhatsApp
               </button>
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setCurrentView('admin_rules')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    currentView === 'admin_rules'
+                      ? 'bg-white text-purple-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Settings className="w-4 h-4 inline mr-1" />
+                  Rules
+                </button>
+              )}
             </div>
             
             {/* Desktop User Info */}
@@ -378,11 +424,18 @@ function App() {
               </div>
             </div>
           </>
-        ) : (
+        ) : currentView === 'whatsapp_operations' ? (
           <>
             {/* WhatsApp Operations View */}
             <div className="flex-1 bg-gray-50">
               <WhatsappOperationsView />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Admin Rules Management View */}
+            <div className="flex-1 bg-gray-50">
+              <AdminRulesManagementView />
             </div>
           </>
         )}
