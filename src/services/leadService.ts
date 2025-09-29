@@ -2,14 +2,57 @@
 // Implements golden rule: form_sessions is read-only, only crm_leads can be modified
 
 import { supabase } from '../lib/supabase';
-import { Lead, LeadStatus, FilterTab, LeadDetails, TimelineEvent } from '../types/leads';
+import { Lead, LeadStatus, FilterTab, LeadDetails, TimelineEvent, GetLeadsResult, PaginationMetadata } from '../types/leads';
 import { AssignmentRuleService } from './assignmentRuleService';
 import { getLeadStatusLabel } from '../utils/leadUtils';
 
 export class LeadService {
-  // Main query to get leads - show ALL form_sessions with optional CRM data
-  static async getLeads(filter: FilterTab = 'all'): Promise<{ data: Lead[], counts: any }> {
-    let query = supabase
+  // Main query to get leads with pagination - show ALL form_sessions with optional CRM data
+  static async getLeads(filter: FilterTab = 'all', page: number = 1, pageSize: number = 50): Promise<GetLeadsResult> {
+    console.log(`📋 Fetching leads: filter=${filter}, page=${page}, pageSize=${pageSize}`);
+    
+    // Build base query function to ensure identical filtering for both count and data queries
+    const buildBaseQuery = () => supabase
+      .from('form_sessions')
+      .select('*'); // Simple select for filtering
+
+    // Function to apply filters to any query
+    const applyFilters = (query: any) => {
+      switch (filter) {
+        case 'form_completions':
+          return query.in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
+        case 'qualified':
+          return query
+            .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
+            .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")');
+        case 'counseling_booked':
+          return query
+            .eq('is_counselling_booked', true)
+            .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
+        case 'unassigned':
+          // Fixed: Correctly catches both types of unassigned leads:
+          // 1. Leads with no crm_leads record (crm_leads.id.is.null)  
+          // 2. Leads with crm_leads record but assigned_to is null
+          return query.or('crm_leads.id.is.null,crm_leads.assigned_to.is.null');
+        default:
+          return query;
+      }
+    };
+
+    // Execute count query - using correct Supabase count API
+    const countQuery = applyFilters(buildBaseQuery());
+    const { count: totalCount, error: countError } = await countQuery
+      .select('id', { count: 'exact', head: true });
+    
+    if (countError) {
+      console.error('Error fetching total count:', countError);
+      throw countError;
+    }
+
+    console.log(`📊 Total count for ${filter}: ${totalCount}`);
+
+    // Execute data query with full joins, ordering and pagination
+    const dataQuery = applyFilters(supabase
       .from('form_sessions')
       .select(`
         *,
@@ -23,39 +66,18 @@ export class LeadService {
             email
           )
         )
-      `)
-      .order('created_at', { ascending: false });
+      `));
+      
+    const { data: rawData, error: dataError } = await dataQuery
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
-    // Apply filters based on form_sessions data (read-only)
-    switch (filter) {
-      case 'form_completions':
-        query = query.in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
-        break;
-      case 'qualified':
-        query = query
-          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
-          .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")');
-        break;
-      case 'counseling_booked':
-        query = query
-          .eq('is_counselling_booked', true)
-          .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
-        break;
-      case 'unassigned':
-        // Filter to show only leads without counselor assignment
-        // LEFT JOIN ensures this catches both: no crm_leads record AND crm_leads with null assigned_to
-        query = query.is('crm_leads.assigned_to', null);
-        break;
+    if (dataError) {
+      console.error('Error fetching leads data:', dataError);
+      throw dataError;
     }
 
-    const { data: rawData, error } = await query;
-
-    if (error) {
-      console.error('Error fetching leads:', error);
-      throw error;
-    }
-
-    console.log('Raw data from Supabase:', rawData); // Debug log
+    console.log(`📋 Fetched ${rawData?.length || 0} leads for page ${page}`);
 
     // Transform data to match our Lead interface
     const leads: Lead[] = (rawData || []).map((row: any) => ({
@@ -102,36 +124,23 @@ export class LeadService {
       assigned_counselor_email: row.crm_leads?.counselors?.email || null,
     }));
 
-    console.log('Transformed leads:', leads); // Debug log
+    // Calculate pagination metadata
+    const totalPages = Math.ceil((totalCount || 0) / pageSize);
+    const pagination: PaginationMetadata = {
+      totalCount: totalCount || 0,
+      currentPage: page,
+      pageSize,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    };
 
-    // Apply client-side filtering for unassigned leads
-    let filteredLeads = leads;
-    if (filter === 'unassigned') {
-      console.log('🔍 FILTERING UNASSIGNED LEADS:');
-      console.log('Total leads before filter:', leads.length);
-      
-      filteredLeads = leads.filter(lead => {
-        const isUnassigned = !lead.assigned_to;
-        console.log(`Lead ${lead.student_name || 'Unknown'} (${lead.session_id.slice(0, 8)}): assigned_to=${lead.assigned_to}, isUnassigned=${isUnassigned}`);
-        return isUnassigned;
-      });
-      
-      console.log('Unassigned leads after filter:', filteredLeads.length);
-      console.log('Total leads before filter:', leads.length);
-      
-      filteredLeads = leads.filter(lead => {
-        const isUnassigned = !lead.assigned_to;
-        console.log(`Lead ${lead.student_name || 'Unknown'} (${lead.session_id.slice(0, 8)}): assigned_to=${lead.assigned_to}, isUnassigned=${isUnassigned}`);
-        return isUnassigned;
-      });
-      
-      console.log('Unassigned leads after filter:', filteredLeads.length);
-    }
+    // Get tab counts (existing functionality)
+    const tabCounts = await this.getLeadCounts();
 
-    // Calculate counts for filter tabs
-    const counts = await this.getLeadCounts();
+    console.log(`📊 Pagination: page ${page}/${totalPages}, total: ${totalCount}`);
 
-    return { data: filteredLeads, counts };
+    return { data: leads, pagination, tabCounts };
   }
 
   // Update lead status in crm_leads table (never touches form_sessions)

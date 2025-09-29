@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, User, GraduationCap, Heart, Phone, Calendar, Settings, TrendingUp, ChevronRight, ChevronLeft, CheckSquare, Square, Users2, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, User, GraduationCap, Heart, Phone, Calendar, Settings, TrendingUp, ChevronRight, ChevronLeft, CheckSquare, Square, Users as Users2, X } from 'lucide-react';
 // Fully responsive leads table with mobile card layout and desktop table view
 // Switches between layouts based on screen size for optimal user experience
 
-import { Lead, SortColumn, SortDirection, TableSort } from '../types/leads';
+import { Lead, SortColumn, SortDirection, TableSort, PaginationMetadata } from '../types/leads';
 import StatusDropdown from './StatusDropdown';
 import CounselorAssignment from './CounselorDropdown';
 import ReassignmentModal from './ReassignmentModal';
@@ -13,6 +13,10 @@ import { formatLeadCreatedAtDisplay } from '../utils/leadUtils';
 interface LeadsTableProps {
   leads: Lead[];
   isLoading: boolean;
+  currentPage: number;
+  pageSize: number;
+  paginationMetadata: PaginationMetadata;
+  onPageChange: (page: number) => void;
   onStatusChange: (leadId: string, newStatus: string) => void;
   onCounselorChange: (sessionId: string, counselorId: string | null, counselorName: string, comment: string) => void;
   onBulkAssign?: (sessionIds: string[], counselorId: string | null, counselorName: string, comment: string) => void;
@@ -304,11 +308,11 @@ const DesktopLeadsTable: React.FC<{
   return (
     <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50 sticky top-0 z-10">
+        <thead className="bg-gray-50 sticky top-0 z-20">
           <tr>
             {/* Selection Column Header */}
             {isSelectionMode && (
-              <th className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20">
+              <th className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30">
                 <div className="flex items-center justify-center">
                   <div 
                     onClick={() => onSelectAllLeads(!allLeadsSelected)}
@@ -334,7 +338,7 @@ const DesktopLeadsTable: React.FC<{
                   column.key !== 'select' ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''
                 } ${
                   column.key === 'student_info' 
-                    ? `sticky ${isSelectionMode ? 'left-12' : 'left-0'} bg-gray-50 z-20` 
+                    ? `sticky ${isSelectionMode ? 'left-12' : 'left-0'} bg-gray-50 z-30` 
                     : ''
                 }`}
                 onClick={() => column.key !== 'select' && onSort(column.key)}
@@ -376,7 +380,7 @@ const DesktopLeadsTable: React.FC<{
               {/* Selection Checkbox Column */}
               {isSelectionMode && (
                 <td 
-                  className="w-12 px-4 py-6 sticky left-0 z-10 checkbox-column"
+                  className="w-12 px-4 py-6 sticky left-0 z-25 checkbox-column"
                   style={{
                     backgroundColor: selectedLeadIds.has(lead.session_id) 
                       ? '#eff6ff' 
@@ -403,7 +407,7 @@ const DesktopLeadsTable: React.FC<{
               
               {/* Student Information */}
               <td 
-                className={`px-6 py-6 text-sm text-gray-900 sticky z-10 ${isSelectionMode ? 'left-12' : 'left-0'}`}
+                className={`px-6 py-6 text-sm text-gray-900 sticky z-25 ${isSelectionMode ? 'left-12' : 'left-0'}`}
                 style={{
                   backgroundColor: selectedLeadIds.has(lead.session_id) 
                     ? '#eff6ff' 
@@ -537,7 +541,18 @@ const DesktopLeadsTable: React.FC<{
 };
 
 // Main Component
-const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChange, onCounselorChange, onBulkAssign, onRowClick }) => {
+const LeadsTable: React.FC<LeadsTableProps> = ({ 
+  leads, 
+  isLoading, 
+  currentPage,
+  pageSize,
+  paginationMetadata,
+  onPageChange,
+  onStatusChange, 
+  onCounselorChange, 
+  onBulkAssign, 
+  onRowClick 
+}) => {
   const [sort, setSort] = useState<TableSort>({ column: 'created_at', direction: 'desc' });
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -559,6 +574,34 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
     isOpen: false,
   });
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+
+  // Pagination helper functions
+  const getPageNumbers = () => {
+    const { totalPages, currentPage } = paginationMetadata;
+    const delta = 2; // Number of pages to show on each side of current page
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots.filter(item => item !== 1 || totalPages > 1);
+  };
 
   const handleSelectLead = (leadId: string, isSelected: boolean) => {
     setSelectedLeadIds(prev => {
@@ -743,11 +786,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
       {/* Mobile View */}
       <div className="lg:hidden">
         <div className="p-4">
-          {!isSelectionMode && (
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {leads.length} Lead{leads.length !== 1 ? 's' : ''}
-            </h3>
-          )}
           <div className="space-y-0">
             {leads.map((lead) => (
               <MobileLeadCard

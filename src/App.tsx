@@ -7,7 +7,7 @@ import CommentModal from './components/CommentModal';
 import LeadDetailsModal from './components/LeadDetailsModal';
 import WhatsappOperationsView from './components/WhatsappOperationsView';
 import AdminRulesManagementView from './components/AdminRulesManagementView';
-import { Lead, FilterTab } from './types/leads';
+import { Lead, FilterTab, PaginationMetadata } from './types/leads';
 import { LeadService } from './services/leadService';
 import { useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
@@ -22,6 +22,16 @@ function App() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50); // Fixed page size - could be made configurable later
+  const [paginationMetadata, setPaginationMetadata] = useState<PaginationMetadata>({
+    totalCount: 0,
+    currentPage: 1,
+    pageSize: 50,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const [commentModal, setCommentModal] = useState<{
     isOpen: boolean;
     sessionId: string;
@@ -85,9 +95,10 @@ function App() {
     const fetchLeads = async () => {
       setIsLoadingData(true);
       try {
-        const { data, counts } = await LeadService.getLeads(activeTab);
-        setLeads(data);
-        setLeadCounts(counts);
+        const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+        setLeads(result.data);
+        setPaginationMetadata(result.pagination);
+        setLeadCounts(result.tabCounts);
       } catch (error) {
         console.error('Error fetching leads:', error);
         setLeads([]);
@@ -97,7 +108,7 @@ function App() {
     };
 
     fetchLeads();
-  }, [activeTab, session]);
+  }, [activeTab, currentPage, pageSize, session]);
 
   const handleStatusChangeRequest = (sessionId: string, newStatus: string) => {
     if (!user) {
@@ -137,14 +148,12 @@ function App() {
       
       console.log('🔄 REFRESHING LEADS DATA...');
       // Refresh leads
-      const { data, counts } = await LeadService.getLeads(activeTab);
-      console.log('📊 NEW COUNTS AFTER ASSIGNMENT:', counts);
-      console.log('📋 NEW LEADS DATA AFTER ASSIGNMENT:', data.length, 'leads');
-      if (activeTab === 'unassigned') {
-        console.log('🔍 UNASSIGNED TAB: Should show', counts.unassigned, 'leads');
-      }
-      setLeads(data);
-      setLeadCounts(counts);
+      const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+      console.log('📊 NEW COUNTS AFTER ASSIGNMENT:', result.tabCounts);
+      console.log('📋 NEW LEADS DATA AFTER ASSIGNMENT:', result.data.length, 'leads');
+      setLeads(result.data);
+      setPaginationMetadata(result.pagination);
+      setLeadCounts(result.tabCounts);
       
       console.log(`Counselor updated for session ${sessionId}: ${counselorName}`);
       console.log(`✅ UI UPDATED: session ${sessionId} ${counselorId ? `assigned to ${counselorName}` : 'unassigned'}`);
@@ -173,10 +182,11 @@ function App() {
       
       console.log('🔄 REFRESHING LEADS DATA AFTER BULK ASSIGNMENT...');
       // Refresh leads
-      const { data, counts } = await LeadService.getLeads(activeTab);
-      console.log('📊 NEW COUNTS AFTER BULK ASSIGNMENT:', counts);
-      setLeads(data);
-      setLeadCounts(counts);
+      const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+      console.log('📊 NEW COUNTS AFTER BULK ASSIGNMENT:', result.tabCounts);
+      setLeads(result.data);
+      setPaginationMetadata(result.pagination);
+      setLeadCounts(result.tabCounts);
       
       console.log(`✅ BULK ASSIGNMENT COMPLETE: ${sessionIds.length} leads assigned to ${counselorName}`);
     } catch (error) {
@@ -200,9 +210,10 @@ function App() {
       await LeadService.updateLeadStatus(sessionId, newStatus as any, counselorId, comment);
       
       // Refresh leads
-      const { data, counts } = await LeadService.getLeads(activeTab);
-      setLeads(data);
-      setLeadCounts(counts);
+      const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+      setLeads(result.data);
+      setPaginationMetadata(result.pagination);
+      setLeadCounts(result.tabCounts);
       
       // Close modal
       setCommentModal({
@@ -232,7 +243,13 @@ function App() {
 
   const handleTabChange = (tab: FilterTab) => {
     setActiveTab(tab);
-    // This will trigger the useEffect to fetch filtered data
+    setCurrentPage(1); // Reset to first page when changing tabs
+    // This will trigger the useEffect to fetch filtered data for page 1
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // This will trigger the useEffect to fetch data for the new page
   };
 
   const handleRowClick = (sessionId: string) => {
@@ -416,6 +433,10 @@ function App() {
                 <LeadsTable 
                   leads={leads}
                   isLoading={isLoadingData}
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  paginationMetadata={paginationMetadata}
+                  onPageChange={handlePageChange}
                   onStatusChange={handleStatusChangeRequest}
                   onCounselorChange={handleCounselorChangeRequest}
                   onBulkAssign={handleBulkAssign}
@@ -460,16 +481,18 @@ function App() {
           const counselorId = user!.id;
           await LeadService.updateLeadStatus(sessionId, newStatus, counselorId, comment);
           // Refresh leads data
-          const { data, counts } = await LeadService.getLeads(activeTab);
-          setLeads(data);
-          setLeadCounts(counts);
+          const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+          setLeads(result.data);
+          setPaginationMetadata(result.pagination);
+          setLeadCounts(result.tabCounts);
         }}
         onCounselorChange={async (sessionId, counselorId, counselorName, comment) => {
           await LeadService.assignLead(sessionId, counselorId, comment);
           // Refresh leads data
-          const { data, counts } = await LeadService.getLeads(activeTab);
-          setLeads(data);
-          setLeadCounts(counts);
+          const result = await LeadService.getLeads(activeTab, currentPage, pageSize);
+          setLeads(result.data);
+          setPaginationMetadata(result.pagination);
+          setLeadCounts(result.tabCounts);
         }}
       />
     </div>
