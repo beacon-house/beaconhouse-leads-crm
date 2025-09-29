@@ -42,7 +42,7 @@ export class LeadService {
     // Execute count query - using correct Supabase count API
     const countQuery = applyFilters(buildBaseQuery());
     const { count: totalCount, error: countError } = await countQuery
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
     
     if (countError) {
       console.error('Error fetching total count:', countError);

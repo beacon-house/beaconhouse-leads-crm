@@ -308,11 +308,11 @@ const DesktopLeadsTable: React.FC<{
   return (
     <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50 sticky top-0 z-10">
+        <thead className="bg-gray-50 sticky top-0 z-20">
           <tr>
             {/* Selection Column Header */}
             {isSelectionMode && (
-              <th className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20">
+              <th className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30">
                 <div className="flex items-center justify-center">
                   <div 
                     onClick={() => onSelectAllLeads(!allLeadsSelected)}
@@ -380,7 +380,7 @@ const DesktopLeadsTable: React.FC<{
               {/* Selection Checkbox Column */}
               {isSelectionMode && (
                 <td 
-                  className="w-12 px-4 py-6 sticky left-0 z-10 checkbox-column"
+                  className="w-12 px-4 py-6 sticky left-0 z-25 checkbox-column"
                   style={{
                     backgroundColor: selectedLeadIds.has(lead.session_id) 
                       ? '#eff6ff' 
@@ -407,7 +407,7 @@ const DesktopLeadsTable: React.FC<{
               
               {/* Student Information */}
               <td 
-                className={`px-6 py-6 text-sm text-gray-900 sticky z-20 ${isSelectionMode ? 'left-12' : 'left-0'}`}
+                className={`px-6 py-6 text-sm text-gray-900 sticky z-25 ${isSelectionMode ? 'left-12' : 'left-0'}`}
                 style={{
                   backgroundColor: selectedLeadIds.has(lead.session_id) 
                     ? '#eff6ff' 
@@ -786,11 +786,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
       {/* Mobile View */}
       <div className="lg:hidden">
         <div className="p-4">
-          {!isSelectionMode && (
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {paginationMetadata.totalCount} Lead{paginationMetadata.totalCount !== 1 ? 's' : ''}
-            </h3>
-          )}
           <div className="space-y-0">
             {leads.map((lead) => (
               <MobileLeadCard
