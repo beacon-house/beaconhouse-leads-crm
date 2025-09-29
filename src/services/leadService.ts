@@ -11,8 +11,48 @@ export class LeadService {
   static async getLeads(filter: FilterTab = 'all', page: number = 1, pageSize: number = 50): Promise<GetLeadsResult> {
     console.log(`📋 Fetching leads: filter=${filter}, page=${page}, pageSize=${pageSize}`);
     
-    // Build base query with all necessary joins
-    let baseQuery = supabase
+    // Build base query function to ensure identical filtering for both count and data queries
+    const buildBaseQuery = () => supabase
+      .from('form_sessions')
+      .select('*'); // Simple select for filtering
+
+    // Function to apply filters to any query
+    const applyFilters = (query: any) => {
+      switch (filter) {
+        case 'form_completions':
+          return query.in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
+        case 'qualified':
+          return query
+            .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
+            .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")');
+        case 'counseling_booked':
+          return query
+            .eq('is_counselling_booked', true)
+            .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
+        case 'unassigned':
+          // Fixed: Correctly catches both types of unassigned leads:
+          // 1. Leads with no crm_leads record (crm_leads.id.is.null)  
+          // 2. Leads with crm_leads record but assigned_to is null
+          return query.or('crm_leads.id.is.null,crm_leads.assigned_to.is.null');
+        default:
+          return query;
+      }
+    };
+
+    // Execute count query - using correct Supabase count API
+    const countQuery = applyFilters(buildBaseQuery());
+    const { count: totalCount, error: countError } = await countQuery
+      .select('*', { count: 'exact', head: true });
+    
+    if (countError) {
+      console.error('Error fetching total count:', countError);
+      throw countError;
+    }
+
+    console.log(`📊 Total count for ${filter}: ${totalCount}`);
+
+    // Execute data query with full joins, ordering and pagination
+    const dataQuery = applyFilters(supabase
       .from('form_sessions')
       .select(`
         *,
@@ -26,43 +66,9 @@ export class LeadService {
             email
           )
         )
-      `)
+      `));
       
-
-    // Apply filters based on form_sessions data (read-only)
-    switch (filter) {
-      case 'form_completions':
-        baseQuery = baseQuery.in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
-        break;
-      case 'qualified':
-        baseQuery = baseQuery
-          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
-          .not('funnel_stage', 'in', '("10_form_submit","form_complete_legacy_26_aug")');
-        break;
-      case 'counseling_booked':
-        baseQuery = baseQuery
-          .eq('is_counselling_booked', true)
-          .in('funnel_stage', ['10_form_submit', 'form_complete_legacy_26_aug']);
-        break;
-      case 'unassigned':
-        // Corrected filter for unassigned leads - catches both types:
-        // 1. Leads with no crm_leads record (crm_leads.id.is.null)
-        // 2. Leads with crm_leads record but assigned_to is null
-        baseQuery = baseQuery.or('crm_leads.id.is.null,crm_leads.assigned_to.is.null');
-        break;
-    }
-
-    // Execute count query first
-    const { count: totalCount, error: countError } = await baseQuery.count('exact', { head: true });
-    if (countError) {
-      console.error('Error fetching total count:', countError);
-      throw countError;
-    }
-
-    console.log(`📊 Total count for ${filter}: ${totalCount}`);
-
-    // Execute data query with ordering and pagination
-    const { data: rawData, error: dataError } = await baseQuery
+    const { data: rawData, error: dataError } = await dataQuery
       .order('created_at', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
