@@ -65,11 +65,17 @@ export class WhatsappLeadService {
         .insert(newWhatsappLeads, { ignoreDuplicates: true });
 
       if (insertError) {
-        console.error('Error inserting WhatsApp leads:', insertError);
-        throw insertError;
+        // Handle duplicate key errors gracefully (these are expected when using ignoreDuplicates)
+        if (insertError.code === '23505') {
+          console.warn('⚠️ Duplicate key detected during WhatsApp leads initialization (this is expected and safely ignored):', insertError.message);
+        } else {
+          // For any other type of error, throw it as a critical error
+          console.error('Error inserting WhatsApp leads:', insertError);
+          throw insertError;
+        }
+      } else {
+        console.log(`✅ Initialized ${newWhatsappLeads.length} new WhatsApp lead entries`);
       }
-
-      console.log(`✅ Initialized ${newWhatsappLeads.length} new WhatsApp lead entries`);
     } catch (error) {
       console.error('Error initializing WhatsApp leads:', error);
       throw error;
