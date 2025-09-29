@@ -112,3 +112,25 @@ export interface TimelineEvent {
 export interface LeadDetails extends Lead {
   timelineEvents: TimelineEvent[];
 }
+
+// Pagination types
+export interface PaginationMetadata {
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface GetLeadsResult {
+  data: Lead[];
+  pagination: PaginationMetadata;
+  tabCounts: {
+    all: number;
+    form_completions: number;
+    qualified: number;
+    counseling_booked: number;
+    unassigned: number;
+  };
+}

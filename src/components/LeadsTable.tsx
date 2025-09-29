@@ -3,7 +3,7 @@ import { ChevronUp, ChevronDown, User, GraduationCap, Heart, Phone, Calendar, Se
 // Fully responsive leads table with mobile card layout and desktop table view
 // Switches between layouts based on screen size for optimal user experience
 
-import { Lead, SortColumn, SortDirection, TableSort } from '../types/leads';
+import { Lead, SortColumn, SortDirection, TableSort, PaginationMetadata } from '../types/leads';
 import StatusDropdown from './StatusDropdown';
 import CounselorAssignment from './CounselorDropdown';
 import ReassignmentModal from './ReassignmentModal';
@@ -13,6 +13,10 @@ import { formatLeadCreatedAtDisplay } from '../utils/leadUtils';
 interface LeadsTableProps {
   leads: Lead[];
   isLoading: boolean;
+  currentPage: number;
+  pageSize: number;
+  paginationMetadata: PaginationMetadata;
+  onPageChange: (page: number) => void;
   onStatusChange: (leadId: string, newStatus: string) => void;
   onCounselorChange: (sessionId: string, counselorId: string | null, counselorName: string, comment: string) => void;
   onBulkAssign?: (sessionIds: string[], counselorId: string | null, counselorName: string, comment: string) => void;
@@ -537,7 +541,18 @@ const DesktopLeadsTable: React.FC<{
 };
 
 // Main Component
-const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChange, onCounselorChange, onBulkAssign, onRowClick }) => {
+const LeadsTable: React.FC<LeadsTableProps> = ({ 
+  leads, 
+  isLoading, 
+  currentPage,
+  pageSize,
+  paginationMetadata,
+  onPageChange,
+  onStatusChange, 
+  onCounselorChange, 
+  onBulkAssign, 
+  onRowClick 
+}) => {
   const [sort, setSort] = useState<TableSort>({ column: 'created_at', direction: 'desc' });
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -559,6 +574,34 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
     isOpen: false,
   });
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+
+  // Pagination helper functions
+  const getPageNumbers = () => {
+    const { totalPages, currentPage } = paginationMetadata;
+    const delta = 2; // Number of pages to show on each side of current page
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots.filter(item => item !== 1 || totalPages > 1);
+  };
 
   const handleSelectLead = (leadId: string, isSelected: boolean) => {
     setSelectedLeadIds(prev => {
@@ -686,14 +729,14 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No leads available</h3>
-          <p className="text-gray-600">Connect to Supabase database to view lead data.</p>
+          <p className="text-gray-600">No leads found for the current filter.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden relative">
+    <div className="bg-white rounded-lg shadow overflow-hidden relative flex flex-col">
       {/* Selection Mode Controls */}
       {!isLoading && leads.length > 0 && (
         <div className="px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200">
@@ -740,13 +783,28 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
         </div>
       )}
 
+      {/* Content Area */}
+      <div className="flex-1">
       {/* Mobile View */}
       <div className="lg:hidden">
         <div className="p-4">
-          {!isSelectionMode && (
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {leads.length} Lead{leads.length !== 1 ? 's' : ''}
+          {/* Mobile Pagination Info */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              {paginationMetadata.totalCount} Lead{paginationMetadata.totalCount !== 1 ? 's' : ''}
             </h3>
+            {paginationMetadata.totalPages > 1 && (
+              <span className="text-sm text-gray-600">
+                Page {paginationMetadata.currentPage} of {paginationMetadata.totalPages}
+              </span>
+            )}
+          </div>
+          {!isSelectionMode && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Showing {((paginationMetadata.currentPage - 1) * paginationMetadata.pageSize) + 1} to {Math.min(paginationMetadata.currentPage * paginationMetadata.pageSize, paginationMetadata.totalCount)} of {paginationMetadata.totalCount}
+              </p>
+            </div>
           )}
           <div className="space-y-0">
             {leads.map((lead) => (
@@ -766,7 +824,21 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
 
       {/* Desktop View */}
       <div className="hidden lg:block">
-        <div className="h-full">
+        <div className="flex flex-col h-full">
+          {/* Desktop Pagination Info */}
+          <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{((paginationMetadata.currentPage - 1) * paginationMetadata.pageSize) + 1}</span> to <span className="font-medium">{Math.min(paginationMetadata.currentPage * paginationMetadata.pageSize, paginationMetadata.totalCount)}</span> of <span className="font-medium">{paginationMetadata.totalCount}</span> results
+              </p>
+              <span className="text-sm text-gray-600">
+                Page {paginationMetadata.currentPage} of {paginationMetadata.totalPages}
+              </span>
+            </div>
+          </div>
+          
+          {/* Table Container */}
+          <div className="flex-1">
         <DesktopLeadsTable
           leads={leads}
           sort={sort}
@@ -780,7 +852,97 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ leads, isLoading, onStatusChang
           onSelectAllLeads={handleSelectAllLeads}
         />
         </div>
+        </div>
       </div>
+      </div>
+
+      {/* Pagination Controls - Always at bottom */}
+      {paginationMetadata.totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 flex justify-between sm:hidden">
+              {/* Mobile Pagination */}
+              <button
+                onClick={() => onPageChange(paginationMetadata.currentPage - 1)}
+                disabled={!paginationMetadata.hasPreviousPage}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Previous
+              </button>
+              <button
+                onClick={() => onPageChange(paginationMetadata.currentPage + 1)}
+                disabled={!paginationMetadata.hasNextPage}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+            
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Page <span className="font-medium">{paginationMetadata.currentPage}</span> of{' '}
+                  <span className="font-medium">{paginationMetadata.totalPages}</span>
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  {/* Previous button */}
+                  <button
+                    onClick={() => onPageChange(paginationMetadata.currentPage - 1)}
+                    disabled={!paginationMetadata.hasPreviousPage}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  
+                  {/* Page numbers */}
+                  {getPageNumbers().map((pageNum, index) => {
+                    if (pageNum === '...') {
+                      return (
+                        <span
+                          key={`dots-${index}`}
+                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    
+                    const isActive = pageNum === paginationMetadata.currentPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => onPageChange(pageNum as number)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          isActive
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  {/* Next button */}
+                  <button
+                    onClick={() => onPageChange(paginationMetadata.currentPage + 1)}
+                    disabled={!paginationMetadata.hasNextPage}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reassignment Modal */}
       <ReassignmentModal
