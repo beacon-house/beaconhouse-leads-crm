@@ -338,7 +338,7 @@ const DesktopLeadsTable: React.FC<{
                   column.key !== 'select' ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''
                 } ${
                   column.key === 'student_info' 
-                    ? `sticky ${isSelectionMode ? 'left-12' : 'left-0'} bg-gray-50 z-20` 
+                    ? `sticky ${isSelectionMode ? 'left-12' : 'left-0'} bg-gray-50 z-30` 
                     : ''
                 }`}
                 onClick={() => column.key !== 'select' && onSort(column.key)}
@@ -407,7 +407,7 @@ const DesktopLeadsTable: React.FC<{
               
               {/* Student Information */}
               <td 
-                className={`px-6 py-6 text-sm text-gray-900 sticky z-10 ${isSelectionMode ? 'left-12' : 'left-0'}`}
+                className={`px-6 py-6 text-sm text-gray-900 sticky z-20 ${isSelectionMode ? 'left-12' : 'left-0'}`}
                 style={{
                   backgroundColor: selectedLeadIds.has(lead.session_id) 
                     ? '#eff6ff' 
@@ -788,7 +788,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         <div className="p-4">
           {!isSelectionMode && (
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {leads.length} Lead{leads.length !== 1 ? 's' : ''}
+              {paginationMetadata.totalCount} Lead{paginationMetadata.totalCount !== 1 ? 's' : ''}
             </h3>
           )}
           <div className="space-y-0">
