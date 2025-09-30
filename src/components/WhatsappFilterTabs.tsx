@@ -35,6 +35,12 @@ const WhatsappFilterTabs: React.FC<WhatsappFilterTabsProps> = ({
       description: 'Counseling booked more than 5 days out - reminder sequences'
     },
     { 
+      id: 'filter_by_stage' as const, 
+      label: 'Filter by Stage', 
+      count: Object.values(leadCounts.filter_by_stage_counts).reduce((sum, count) => sum + count, 0),
+      description: 'Filter leads by CRM stage - leads can appear in multiple tabs'
+    },
+    { 
       id: 'exported_leads' as const, 
       label: 'Exported Leads', 
       count: leadCounts.exported_leads,

@@ -83,7 +83,7 @@ export class WhatsappLeadService {
   }
 
   // Get WhatsApp leads based on filter tab
-  static async getWhatsappLeads(filter: WhatsappFilterTab = 'call_not_booked'): Promise<{ data: WhatsappLead[], counts: WhatsappLeadCounts }> {
+  static async getWhatsappLeads(filter: WhatsappFilterTab = 'call_not_booked', selectedStages?: string[]): Promise<{ data: WhatsappLead[], counts: WhatsappLeadCounts }> {
     console.log(`📋 Fetching WhatsApp leads for filter: ${filter}`);
     
     // Base query with all necessary joins
@@ -130,6 +130,41 @@ export class WhatsappLeadService {
       case 'call_booked_more_5_days':
         // Qualified leads who have booked counseling - will filter by date on frontend
         query = query.eq('is_counselling_booked', true);
+        break;
+        
+      case 'filter_by_stage':
+        // Special handling for stage-based filtering
+        // Remove the lead_category filter for this tab
+        query = supabase
+          .from('form_sessions')
+          .select(`
+            *,
+            crm_leads (
+              id,
+              lead_status,
+              assigned_to,
+              last_contacted,
+              counselors (
+                name,
+                email
+              )
+            ),
+            whatsapp_leads (
+              id,
+              whatsapp_status,
+              export_date,
+              last_message_date,
+              exported_by,
+              notes,
+              created_at,
+              updated_at,
+              counselors (
+                name,
+                email
+              )
+            )
+          `)
+          .order('created_at', { ascending: false });
         break;
         
       case 'exported_leads':
@@ -215,6 +250,22 @@ export class WhatsappLeadService {
           return daysDifference > 5 && lead.whatsapp_status === 'not_exported';
         }
       });
+    } else if (filter === 'filter_by_stage') {
+      // Filter by selected stages if provided
+      if (!selectedStages || selectedStages.length === 0) {
+        whatsappLeads = []; // Return empty if no stages selected
+      } else {
+        whatsappLeads = whatsappLeads.filter(lead => {
+          // Only show leads that are not exported
+          if (lead.whatsapp_status !== 'not_exported') return false;
+          
+          // Check if lead matches selected stages
+          const matchesNotInCrm = selectedStages.includes('not_in_crm') && !lead.crm_lead_id;
+          const matchesStage = selectedStages.includes(lead.lead_status);
+          
+          return matchesNotInCrm || matchesStage;
+        });
+      }
     } else if (filter === 'exported_leads') {
       whatsappLeads = whatsappLeads.filter(lead => 
         lead.whatsapp_status === 'exported' || lead.whatsapp_status === 'message_sent'
@@ -282,10 +333,13 @@ export class WhatsappLeadService {
         }
       });
 
+      // Get filter by stage counts
+      const filterByStageCount = await this.getFilterByStageLeadCounts();
       const counts = {
         call_not_booked: callNotBooked,
         call_booked_5_days: callBooked5Days,
         call_booked_more_5_days: callBookedMore5Days,
+        filter_by_stage_counts: filterByStageCount,
         exported_leads: exportedLeads,
       };
 
@@ -294,6 +348,63 @@ export class WhatsappLeadService {
       
     } catch (error) {
       console.error('Error calculating WhatsApp lead counts:', error);
+      throw error;
+    }
+  }
+
+  // Get lead counts by CRM stage for filter by stage tab
+  static async getFilterByStageLeadCounts(): Promise<Record<string, number>> {
+    console.log('📊 Calculating filter by stage counts...');
+    
+    try {
+      // Get all leads with CRM and WhatsApp data (no lead_category filter)
+      const { data: allLeads, error } = await supabase
+        .from('form_sessions')
+        .select(`
+          session_id,
+          crm_leads (
+            id,
+            lead_status
+          ),
+          whatsapp_leads (
+            whatsapp_status
+          )
+        `);
+
+      if (error) {
+        console.error('Error fetching leads for stage counts:', error);
+        throw error;
+      }
+
+      const stageCounts: Record<string, number> = {};
+      let notInCrmCount = 0;
+
+      (allLeads || []).forEach((lead: any) => {
+        const whatsappStatus = lead.whatsapp_leads?.whatsapp_status || 'not_exported';
+        
+        // Only count leads that are not exported
+        if (whatsappStatus === 'not_exported') {
+          if (!lead.crm_leads?.id) {
+            // Lead not in CRM
+            notInCrmCount++;
+          } else {
+            // Lead in CRM with status
+            const leadStatus = lead.crm_leads.lead_status;
+            stageCounts[leadStatus] = (stageCounts[leadStatus] || 0) + 1;
+          }
+        }
+      });
+
+      // Add not_in_crm count
+      if (notInCrmCount > 0) {
+        stageCounts['not_in_crm'] = notInCrmCount;
+      }
+
+      console.log('📊 Filter by stage counts:', stageCounts);
+      return stageCounts;
+      
+    } catch (error) {
+      console.error('Error calculating filter by stage counts:', error);
       throw error;
     }
   }

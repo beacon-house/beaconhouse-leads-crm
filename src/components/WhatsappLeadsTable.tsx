@@ -38,6 +38,35 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
   const canExport = isExportTab && selectedLeadIds.size > 0;
   const canUpdateStatus = activeTab === 'exported_leads' && selectedLeadIds.size > 0;
 
+  // Function to check if a lead appears in other tabs (for overlap indicators)
+  const getLeadOverlapTabs = (lead: WhatsappLead): string[] => {
+    if (activeTab !== 'filter_by_stage') return [];
+    
+    const overlapTabs: string[] = [];
+    
+    // Check if lead appears in Tab 1: Call Not Booked
+    if (lead.lead_category && ['bch', 'lum-l1', 'lum-l2'].includes(lead.lead_category) && 
+        !lead.is_counselling_booked && lead.whatsapp_status === 'not_exported') {
+      overlapTabs.push('Call Not Booked');
+    }
+    
+    // Check if lead appears in Tab 2: Call Booked (≤5 days)
+    if (lead.lead_category && ['bch', 'lum-l1', 'lum-l2'].includes(lead.lead_category) && 
+        lead.is_counselling_booked && lead.selected_date && lead.created_at && 
+        lead.whatsapp_status === 'not_exported') {
+      const selectedDate = new Date(lead.selected_date);
+      const createdDate = new Date(lead.created_at);
+      const daysDifference = Math.ceil((selectedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDifference <= 5) {
+        overlapTabs.push('Call Booked ≤5 days');
+      } else if (daysDifference > 5) {
+        overlapTabs.push('Call Booked >5 days');
+      }
+    }
+    
+    return overlapTabs;
+  };
   const handleSelectLead = (sessionId: string, isSelected: boolean) => {
     setSelectedLeadIds(prev => {
       const newSet = new Set(prev);
@@ -277,6 +306,11 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Counseling Info
                 </th>
+                {activeTab === 'filter_by_stage' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Also Appears In
+                  </th>
+                )}
                 {activeTab === 'exported_leads' && (
                   <>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -348,6 +382,24 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
                     </div>
                   </td>
 
+                  {/* Overlap Indicators - Only show in filter_by_stage tab */}
+                  {activeTab === 'filter_by_stage' && (
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        {getLeadOverlapTabs(lead).map((tabName, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800 mr-1 mb-1"
+                          >
+                            {tabName}
+                          </span>
+                        ))}
+                        {getLeadOverlapTabs(lead).length === 0 && (
+                          <span className="text-sm text-gray-500 italic">Only in this view</span>
+                        )}
+                      </div>
+                    </td>
+                  )}
                   {activeTab === 'exported_leads' && (
                     <>
                       <td className="px-6 py-4">

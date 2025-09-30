@@ -5,16 +5,19 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, AlertCircle } from 'lucide-react';
 import WhatsappFilterTabs from './WhatsappFilterTabs';
 import WhatsappLeadsTable from './WhatsappLeadsTable';
+import WhatsappStageFilterDropdown from './WhatsappStageFilterDropdown';
 import { WhatsappLead, WhatsappFilterTab, WhatsappLeadCounts } from '../types/whatsappLeads';
 import { WhatsappLeadService } from '../services/whatsappLeadService';
 
 const WhatsappOperationsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<WhatsappFilterTab>('call_not_booked');
   const [leads, setLeads] = useState<WhatsappLead[]>([]);
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [leadCounts, setLeadCounts] = useState<WhatsappLeadCounts>({
     call_not_booked: 0,
     call_booked_5_days: 0,
     call_booked_more_5_days: 0,
+    filter_by_stage_counts: {},
     exported_leads: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +35,13 @@ const WhatsappOperationsView: React.FC = () => {
       fetchWhatsappLeads();
     }
   }, [activeTab, isInitializing]);
+
+  // Fetch leads when selected stages change for filter_by_stage tab
+  useEffect(() => {
+    if (!isInitializing && activeTab === 'filter_by_stage') {
+      fetchWhatsappLeads();
+    }
+  }, [selectedStages, isInitializing, activeTab]);
 
   const initializeWhatsappLeads = async () => {
     console.log('🔄 Initializing WhatsApp operations view...');
@@ -54,7 +64,10 @@ const WhatsappOperationsView: React.FC = () => {
     setError(null);
     
     try {
-      const { data, counts } = await WhatsappLeadService.getWhatsappLeads(activeTab);
+      const { data, counts } = await WhatsappLeadService.getWhatsappLeads(
+        activeTab, 
+        activeTab === 'filter_by_stage' ? selectedStages : undefined
+      );
       setLeads(data);
       setLeadCounts(counts);
     } catch (error) {
@@ -68,6 +81,14 @@ const WhatsappOperationsView: React.FC = () => {
 
   const handleTabChange = (tab: WhatsappFilterTab) => {
     setActiveTab(tab);
+    // Clear stage selections when switching away from filter_by_stage tab
+    if (tab !== 'filter_by_stage') {
+      setSelectedStages([]);
+    }
+  };
+
+  const handleStageSelectionChange = (stages: string[]) => {
+    setSelectedStages(stages);
   };
 
   const handleLeadsExported = async () => {
@@ -143,6 +164,25 @@ const WhatsappOperationsView: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 bg-gray-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 h-full">
+          {/* Stage Filter Dropdown - Only show for filter_by_stage tab */}
+          {activeTab === 'filter_by_stage' && (
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by CRM Stage</h3>
+                <WhatsappStageFilterDropdown
+                  stageCountsData={leadCounts.filter_by_stage_counts}
+                  selectedStages={selectedStages}
+                  onSelectionChange={handleStageSelectionChange}
+                />
+                {selectedStages.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Showing leads matching {selectedStages.length} selected stage{selectedStages.length > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <WhatsappLeadsTable
             leads={leads}
             activeTab={activeTab}
