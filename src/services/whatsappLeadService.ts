@@ -67,6 +67,7 @@ export class WhatsappLeadService {
         // Handle duplicate key errors gracefully (these are expected when using ignoreDuplicates)
         if (insertError.code === '23505') {
           console.warn('⚠️ Duplicate key detected during WhatsApp leads initialization (this is expected and safely ignored):', insertError.message);
+          return; // Return early on duplicate key errors
         } else {
           // For any other type of error, throw it as a critical error
           console.error('Critical error inserting WhatsApp leads:', insertError);
@@ -150,7 +151,7 @@ export class WhatsappLeadService {
         // Check for actual CRM lead statuses
         const crmLeadStatuses = selectedStages.filter(stage => stage !== 'not_in_crm');
         if (crmLeadStatuses.length > 0) {
-          orConditions.push(`crm_leads.lead_status.in.(${crmLeadStatuses.map(s => `"${s}"`).join(',')})`);
+          orConditions.push(`crm_leads.lead_status.in.("${crmLeadStatuses.join('","')}")`);
         }
 
         if (orConditions.length === 0) {
