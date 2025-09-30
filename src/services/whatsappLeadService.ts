@@ -8,26 +8,27 @@ export class WhatsappLeadService {
   
   // Initialize WhatsApp leads for all qualified leads
   static async initializeWhatsappLeads(): Promise<void> {
-    console.log('🔄 Initializing WhatsApp leads for all form sessions...');
+    console.log('🔄 Initializing WhatsApp leads for qualified leads...');
     
     try {
-      // Get all form sessions that don't have WhatsApp entries
-      const { data: allLeads, error: selectError } = await supabase
+      // Get all qualified leads that don't have WhatsApp entries
+      const { data: qualifiedLeads, error: selectError } = await supabase
         .from('form_sessions')
         .select(`
           session_id,
           lead_category,
           is_counselling_booked,
           funnel_stage
-        `);
+        `)
+        .in('lead_category', ['bch', 'lum-l1', 'lum-l2']);
 
       if (selectError) {
-        console.error('Error fetching form sessions:', selectError);
+        console.error('Error fetching qualified leads:', selectError);
         throw selectError;
       }
 
-      if (!allLeads || allLeads.length === 0) {
-        console.log('No form sessions found');
+      if (!qualifiedLeads || qualifiedLeads.length === 0) {
+        console.log('No qualified leads found');
         return;
       }
 
@@ -46,7 +47,7 @@ export class WhatsappLeadService {
       );
 
       // Filter out leads that already have WhatsApp entries
-      const newWhatsappLeads = allLeads
+      const newWhatsappLeads = qualifiedLeads
         .filter(lead => !existingSessionIds.has(lead.session_id))
         .map(lead => ({
           session_id: lead.session_id,
@@ -54,7 +55,7 @@ export class WhatsappLeadService {
         }));
 
       if (newWhatsappLeads.length === 0) {
-        console.log('All form sessions already have WhatsApp entries');
+        console.log('All qualified leads already have WhatsApp entries');
         return;
       }
 
@@ -67,7 +68,6 @@ export class WhatsappLeadService {
         // Handle duplicate key errors gracefully (these are expected when using ignoreDuplicates)
         if (insertError.code === '23505') {
           console.warn('⚠️ Duplicate key detected during WhatsApp leads initialization (this is expected and safely ignored):', insertError.message);
-          return;
         } else {
           // For any other type of error, throw it as a critical error
           console.error('Error inserting WhatsApp leads:', insertError);
@@ -86,93 +86,55 @@ export class WhatsappLeadService {
   static async getWhatsappLeads(filter: WhatsappFilterTab = 'call_not_booked', selectedStages?: string[]): Promise<{ data: WhatsappLead[], counts: WhatsappLeadCounts }> {
     console.log(`📋 Fetching WhatsApp leads for filter: ${filter}`);
     
-    let query: any;
+    // Base query with all necessary joins
+    let query = supabase
+      .from('form_sessions')
+      .select(`
+        *,
+        crm_leads (
+          id,
+          lead_status,
+          assigned_to,
+          last_contacted,
+          counselors (
+            name,
+            email
+          )
+        ),
+        whatsapp_leads (
+          id,
+          whatsapp_status,
+          export_date,
+          last_message_date,
+          exported_by,
+          notes,
+          created_at,
+          updated_at,
+          counselors (
+            name,
+            email
+          )
+        )
+      `)
+      .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
+      .order('created_at', { ascending: false });
 
     // Apply filter-specific conditions
     switch (filter) {
       case 'call_not_booked':
         // Qualified leads who haven't booked counseling
-        query = supabase
-          .from('form_sessions')
-          .select(`
-            *,
-            crm_leads (
-              id,
-              lead_status,
-              assigned_to,
-              last_contacted,
-              counselors (
-                name,
-                email
-              )
-            ),
-            whatsapp_leads (
-              id,
-              whatsapp_status,
-              export_date,
-              last_message_date,
-              exported_by,
-              notes,
-              created_at,
-              updated_at,
-              counselors (
-                name,
-                email
-              )
-            )
-          `)
-          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
-          .eq('is_counselling_booked', false)
-          .eq('whatsapp_leads.whatsapp_status', 'not_exported')
-          .order('created_at', { ascending: false });
+        query = query.eq('is_counselling_booked', false);
         break;
         
       case 'call_booked_5_days':
       case 'call_booked_more_5_days':
-        // Qualified leads who have booked counseling - will filter by date on client side
-        query = supabase
-          .from('form_sessions')
-          .select(`
-            *,
-            crm_leads (
-              id,
-              lead_status,
-              assigned_to,
-              last_contacted,
-              counselors (
-                name,
-                email
-              )
-            ),
-            whatsapp_leads (
-              id,
-              whatsapp_status,
-              export_date,
-              last_message_date,
-              exported_by,
-              notes,
-              created_at,
-              updated_at,
-              counselors (
-                name,
-                email
-              )
-            )
-          `)
-          .in('lead_category', ['bch', 'lum-l1', 'lum-l2'])
-          .eq('is_counselling_booked', true)
-          .eq('whatsapp_leads.whatsapp_status', 'not_exported')
-          .order('created_at', { ascending: false });
+        // Qualified leads who have booked counseling - will filter by date on frontend
+        query = query.eq('is_counselling_booked', true);
         break;
         
       case 'filter_by_stage':
-        // All form sessions filtered by selected CRM stages - database level filtering
-        if (!selectedStages || selectedStages.length === 0) {
-          // Return empty result early if no stages selected
-          const counts = await this.getWhatsappLeadCounts();
-          return { data: [], counts };
-        }
-        
+        // Special handling for stage-based filtering
+        // Remove the lead_category filter for this tab
         query = supabase
           .from('form_sessions')
           .select(`
@@ -202,64 +164,12 @@ export class WhatsappLeadService {
               )
             )
           `)
-          .eq('whatsapp_leads.whatsapp_status', 'not_exported')
           .order('created_at', { ascending: false });
-
-        // Build OR conditions for database-level filtering
-        const orConditions = [];
-        
-        // Check for "Not in CRM" selection
-        if (selectedStages.includes('not_in_crm')) {
-          orConditions.push('crm_leads.id.is.null');
-        }
-        
-        // Check for specific lead status selections
-        const crmLeadStatuses = selectedStages.filter(stage => stage !== 'not_in_crm');
-        if (crmLeadStatuses.length > 0) {
-          orConditions.push(`crm_leads.lead_status.in.("${crmLeadStatuses.join('","')}")`);
-        }
-        
-        // Apply OR conditions to query
-        if (orConditions.length > 0) {
-          query = query.or(orConditions.join(','));
-        }
-        
-        console.log(`🔍 Filter by stage - OR conditions: ${orConditions.join(' OR ')}`);
         break;
         
       case 'exported_leads':
-        // All leads that have been exported (regardless of lead_category)
-        query = supabase
-          .from('form_sessions')
-          .select(`
-            *,
-            crm_leads (
-              id,
-              lead_status,
-              assigned_to,
-              last_contacted,
-              counselors (
-                name,
-                email
-              )
-            ),
-            whatsapp_leads (
-              id,
-              whatsapp_status,
-              export_date,
-              last_message_date,
-              exported_by,
-              notes,
-              created_at,
-              updated_at,
-              counselors (
-                name,
-                email
-              )
-            )
-          `)
-          .in('whatsapp_leads.whatsapp_status', ['exported', 'message_sent'])
-          .order('created_at', { ascending: false });
+        // Only show leads that have been exported
+        // This will be filtered after the query based on whatsapp_status
         break;
     }
 
@@ -335,15 +245,34 @@ export class WhatsappLeadService {
         const daysDifference = Math.ceil((selectedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
         
         if (filter === 'call_booked_5_days') {
-          return daysDifference <= 5;
+          return daysDifference <= 5 && lead.whatsapp_status === 'not_exported';
         } else {
-          return daysDifference > 5;
+          return daysDifference > 5 && lead.whatsapp_status === 'not_exported';
         }
       });
+    } else if (filter === 'filter_by_stage') {
+      // Filter by selected stages if provided
+      if (!selectedStages || selectedStages.length === 0) {
+        whatsappLeads = []; // Return empty if no stages selected
+      } else {
+        whatsappLeads = whatsappLeads.filter(lead => {
+          // Only show leads that are not exported
+          if (lead.whatsapp_status !== 'not_exported') return false;
+          
+          // Check if lead matches selected stages
+          const matchesNotInCrm = selectedStages.includes('not_in_crm') && !lead.crm_lead_id;
+          const matchesStage = selectedStages.includes(lead.lead_status);
+          
+          return matchesNotInCrm || matchesStage;
+        });
+      }
+    } else if (filter === 'exported_leads') {
+      whatsappLeads = whatsappLeads.filter(lead => 
+        lead.whatsapp_status === 'exported' || lead.whatsapp_status === 'message_sent'
+      );
+    } else if (filter === 'call_not_booked') {
+      whatsappLeads = whatsappLeads.filter(lead => lead.whatsapp_status === 'not_exported');
     }
-
-    // Note: filter_by_stage and exported_leads now use database-level filtering,
-    // so no client-side filtering needed
 
     // Get counts
     const counts = await this.getWhatsappLeadCounts();
@@ -428,7 +357,7 @@ export class WhatsappLeadService {
     console.log('📊 Calculating filter by stage counts...');
     
     try {
-      // Get all form sessions with CRM and WhatsApp data (no lead_category filter)
+      // Get all leads with CRM and WhatsApp data (no lead_category filter)
       const { data: allLeads, error } = await supabase
         .from('form_sessions')
         .select(`
