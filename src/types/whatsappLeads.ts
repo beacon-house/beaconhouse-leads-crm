@@ -12,6 +12,7 @@ export type WhatsappFilterTab =
   | 'call_not_booked'
   | 'call_booked_5_days'
   | 'call_booked_more_5_days'
+  | 'filter_by_stage'
   | 'exported_leads';
 
 export interface WhatsappLead extends Lead {
@@ -32,6 +33,7 @@ export interface WhatsappLeadCounts {
   call_not_booked: number;
   call_booked_5_days: number;
   call_booked_more_5_days: number;
+  filter_by_stage_counts: Record<string, number>;
   exported_leads: number;
 }
 
@@ -48,3 +50,9 @@ export interface WhatsappExportData {
   selected_slot?: string;
   created_at: string;
 }
+
+export type LeadStageOption = {
+  value: string;
+  label: string;
+  count: number;
+};
