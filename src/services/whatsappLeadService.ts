@@ -11,7 +11,7 @@ export class WhatsappLeadService {
     console.log('🔄 Initializing WhatsApp leads for qualified leads...');
     
     try {
-      // Get all qualified leads that don't have WhatsApp entries
+      // Get all form sessions that don't have WhatsApp entries
       const { data: qualifiedLeads, error: selectError } = await supabase
         .from('form_sessions')
         .select(`
@@ -19,16 +19,15 @@ export class WhatsappLeadService {
           lead_category,
           is_counselling_booked,
           funnel_stage
-        `)
-        .in('lead_category', ['bch', 'lum-l1', 'lum-l2']);
+        `);
 
       if (selectError) {
-        console.error('Error fetching qualified leads:', selectError);
+        console.error('Error fetching form sessions:', selectError);
         throw selectError;
       }
 
       if (!qualifiedLeads || qualifiedLeads.length === 0) {
-        console.log('No qualified leads found');
+        console.log('No form sessions found');
         return;
       }
 
@@ -55,7 +54,7 @@ export class WhatsappLeadService {
         }));
 
       if (newWhatsappLeads.length === 0) {
-        console.log('All qualified leads already have WhatsApp entries');
+        console.log('All form sessions already have WhatsApp entries');
         return;
       }
 
@@ -70,7 +69,7 @@ export class WhatsappLeadService {
           console.warn('⚠️ Duplicate key detected during WhatsApp leads initialization (this is expected and safely ignored):', insertError.message);
         } else {
           // For any other type of error, throw it as a critical error
-          console.error('Error inserting WhatsApp leads:', insertError);
+          console.error('Critical error inserting WhatsApp leads:', insertError);
           throw insertError;
         }
       } else {
@@ -133,8 +132,34 @@ export class WhatsappLeadService {
         break;
         
       case 'filter_by_stage':
-        // Special handling for stage-based filtering
-        // Remove the lead_category filter for this tab
+        // Early return if no stages selected
+        if (!selectedStages || selectedStages.length === 0) {
+          console.log('📋 No stages selected, returning empty results');
+          const counts = await this.getWhatsappLeadCounts();
+          return { data: [], counts };
+        }
+
+        // Build OR conditions for database-level filtering
+        const orConditions: string[] = [];
+        
+        // Check for "Not in CRM" selection
+        if (selectedStages.includes('not_in_crm')) {
+          orConditions.push('crm_leads.id.is.null');
+        }
+        
+        // Check for actual CRM lead statuses
+        const crmLeadStatuses = selectedStages.filter(stage => stage !== 'not_in_crm');
+        if (crmLeadStatuses.length > 0) {
+          orConditions.push(`crm_leads.lead_status.in.(${crmLeadStatuses.map(s => `"${s}"`).join(',')})`);
+        }
+
+        if (orConditions.length === 0) {
+          console.log('📋 No valid conditions, returning empty results');
+          const counts = await this.getWhatsappLeadCounts();
+          return { data: [], counts };
+        }
+
+        // Build query with proper database-level filtering
         query = supabase
           .from('form_sessions')
           .select(`
@@ -164,7 +189,11 @@ export class WhatsappLeadService {
               )
             )
           `)
+          .eq('whatsapp_leads.whatsapp_status', 'not_exported')
+          .or(orConditions.join(','))
           .order('created_at', { ascending: false });
+        
+        console.log(`📋 Filter by stage query built with OR conditions: ${orConditions.join(' OR ')}`);
         break;
         
       case 'exported_leads':
@@ -238,7 +267,7 @@ export class WhatsappLeadService {
     // Apply client-side filtering for specific cases
     if (filter === 'call_booked_5_days' || filter === 'call_booked_more_5_days') {
       whatsappLeads = whatsappLeads.filter(lead => {
-        if (!lead.selected_date || !lead.created_at) return false;
+        if (!lead.selected_date || !lead.created_at || !lead.lead_category || !['bch', 'lum-l1', 'lum-l2'].includes(lead.lead_category)) return false;
         
         const selectedDate = new Date(lead.selected_date);
         const createdDate = new Date(lead.created_at);
@@ -250,28 +279,16 @@ export class WhatsappLeadService {
           return daysDifference > 5 && lead.whatsapp_status === 'not_exported';
         }
       });
-    } else if (filter === 'filter_by_stage') {
-      // Filter by selected stages if provided
-      if (!selectedStages || selectedStages.length === 0) {
-        whatsappLeads = []; // Return empty if no stages selected
-      } else {
-        whatsappLeads = whatsappLeads.filter(lead => {
-          // Only show leads that are not exported
-          if (lead.whatsapp_status !== 'not_exported') return false;
-          
-          // Check if lead matches selected stages
-          const matchesNotInCrm = selectedStages.includes('not_in_crm') && !lead.crm_lead_id;
-          const matchesStage = selectedStages.includes(lead.lead_status);
-          
-          return matchesNotInCrm || matchesStage;
-        });
-      }
     } else if (filter === 'exported_leads') {
       whatsappLeads = whatsappLeads.filter(lead => 
         lead.whatsapp_status === 'exported' || lead.whatsapp_status === 'message_sent'
       );
     } else if (filter === 'call_not_booked') {
-      whatsappLeads = whatsappLeads.filter(lead => lead.whatsapp_status === 'not_exported');
+      whatsappLeads = whatsappLeads.filter(lead => 
+        lead.whatsapp_status === 'not_exported' && 
+        lead.lead_category && 
+        ['bch', 'lum-l1', 'lum-l2'].includes(lead.lead_category)
+      );
     }
 
     // Get counts
@@ -357,7 +374,7 @@ export class WhatsappLeadService {
     console.log('📊 Calculating filter by stage counts...');
     
     try {
-      // Get all leads with CRM and WhatsApp data (no lead_category filter)
+      // Get all form sessions with CRM and WhatsApp data
       const { data: allLeads, error } = await supabase
         .from('form_sessions')
         .select(`
