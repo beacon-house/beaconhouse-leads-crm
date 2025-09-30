@@ -197,7 +197,7 @@ export class WhatsappLeadService {
         console.log(`📋 Filter by stage query built with OR conditions: ${orConditions.join(' OR ')}`);
         break;
         
-      case 'exported_leads':
+        const { data: rawData, error } = await query.or(orConditions.join(','));
         // Only show leads that have been exported
         // This will be filtered after the query based on whatsapp_status
         break;

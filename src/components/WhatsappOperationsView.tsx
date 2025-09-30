@@ -27,7 +27,7 @@ const WhatsappOperationsView: React.FC = () => {
   // Initialize WhatsApp leads on component mount
   useEffect(() => {
     initializeWhatsappLeads();
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
   // Fetch leads when active tab changes
   useEffect(() => {
