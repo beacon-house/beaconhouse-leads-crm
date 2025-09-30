@@ -59,10 +59,10 @@ export class WhatsappLeadService {
         return;
       }
 
-      // Insert new WhatsApp lead entries
+      // Insert new WhatsApp lead entries (idempotent by session_id)
       const { error: insertError } = await supabase
         .from('whatsapp_leads')
-        .insert(newWhatsappLeads, { ignoreDuplicates: true });
+        .upsert(newWhatsappLeads, { onConflict: 'session_id' });
 
       if (insertError) {
         // Handle duplicate key errors gracefully (these are expected when using ignoreDuplicates)
@@ -96,6 +96,7 @@ export class WhatsappLeadService {
           lead_status,
           assigned_to,
           last_contacted,
+          updated_at,
           counselors (
             name,
             email
@@ -133,8 +134,8 @@ export class WhatsappLeadService {
         break;
         
       case 'filter_by_stage':
-        // Special handling for stage-based filtering
-        // Remove the lead_category filter for this tab
+        // Stage-based filtering over ALL leads (not limited to qualified categories)
+        // This view is for analysis and selective export eligibility will be enforced in UI
         query = supabase
           .from('form_sessions')
           .select(`
@@ -181,7 +182,16 @@ export class WhatsappLeadService {
     }
 
     // Transform and filter data
-    let whatsappLeads: WhatsappLead[] = (rawData || []).map((row: any) => ({
+    let whatsappLeads: WhatsappLead[] = (rawData || []).map((row: any) => {
+      // Normalize nested relations that can be arrays depending on PostgREST relationship inference
+      let crm = Array.isArray(row.crm_leads) ? row.crm_leads : (row.crm_leads ? [row.crm_leads] : []);
+      if (crm.length > 1) {
+        crm = crm.sort((a: any, b: any) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+      }
+      const crmLatest = crm[0];
+      const wa = Array.isArray(row.whatsapp_leads) ? row.whatsapp_leads[0] : row.whatsapp_leads;
+
+      return ({
       // Form sessions data
       id: row.id,
       session_id: row.session_id,
@@ -215,25 +225,25 @@ export class WhatsappLeadService {
       created_at: row.created_at,
       
       // CRM data
-      crm_lead_id: row.crm_leads?.id || null,
-      lead_status: row.crm_leads?.lead_status || '01_yet_to_contact',
-      assigned_to: row.crm_leads?.assigned_to || null,
-      last_contacted: row.crm_leads?.last_contacted || null,
-      assigned_counselor_name: row.crm_leads?.counselors?.name || null,
-      assigned_counselor_email: row.crm_leads?.counselors?.email || null,
+      crm_lead_id: crmLatest?.id || null,
+      lead_status: crmLatest?.lead_status || '01_yet_to_contact',
+      assigned_to: crmLatest?.assigned_to || null,
+      last_contacted: crmLatest?.last_contacted || null,
+      assigned_counselor_name: crmLatest?.counselors?.name || null,
+      assigned_counselor_email: crmLatest?.counselors?.email || null,
       
       // WhatsApp data
-      whatsapp_id: row.whatsapp_leads?.id || null,
-      whatsapp_status: row.whatsapp_leads?.whatsapp_status || 'not_exported',
-      export_date: row.whatsapp_leads?.export_date || null,
-      last_message_date: row.whatsapp_leads?.last_message_date || null,
-      exported_by: row.whatsapp_leads?.exported_by || null,
-      exported_by_name: row.whatsapp_leads?.counselors?.name || null,
-      exported_by_email: row.whatsapp_leads?.counselors?.email || null,
-      whatsapp_notes: row.whatsapp_leads?.notes || null,
-      whatsapp_created_at: row.whatsapp_leads?.created_at || null,
-      whatsapp_updated_at: row.whatsapp_leads?.updated_at || null,
-    }));
+      whatsapp_id: wa?.id || null,
+      whatsapp_status: wa?.whatsapp_status || 'not_exported',
+      export_date: wa?.export_date || null,
+      last_message_date: wa?.last_message_date || null,
+      exported_by: wa?.exported_by || null,
+      exported_by_name: wa?.counselors?.name || null,
+      exported_by_email: wa?.counselors?.email || null,
+      whatsapp_notes: wa?.notes || null,
+      whatsapp_created_at: wa?.created_at || null,
+      whatsapp_updated_at: wa?.updated_at || null,
+    })});
 
     // Apply client-side filtering for specific cases
     if (filter === 'call_booked_5_days' || filter === 'call_booked_more_5_days') {
@@ -251,18 +261,11 @@ export class WhatsappLeadService {
         }
       });
     } else if (filter === 'filter_by_stage') {
-      // Filter by selected stages if provided
-      if (!selectedStages || selectedStages.length === 0) {
-        whatsappLeads = []; // Return empty if no stages selected
-      } else {
+      // Filter by selected stages if provided; otherwise return ALL leads
+      if (selectedStages && selectedStages.length > 0) {
         whatsappLeads = whatsappLeads.filter(lead => {
-          // Only show leads that are not exported
-          if (lead.whatsapp_status !== 'not_exported') return false;
-          
-          // Check if lead matches selected stages
           const matchesNotInCrm = selectedStages.includes('not_in_crm') && !lead.crm_lead_id;
           const matchesStage = selectedStages.includes(lead.lead_status);
-          
           return matchesNotInCrm || matchesStage;
         });
       }
@@ -357,11 +360,13 @@ export class WhatsappLeadService {
     console.log('📊 Calculating filter by stage counts...');
     
     try {
-      // Get all leads with CRM and WhatsApp data (no lead_category filter)
+      // Get qualified leads with CRM and WhatsApp data
       const { data: allLeads, error } = await supabase
         .from('form_sessions')
         .select(`
           session_id,
+          lead_category,
+          created_at,
           crm_leads (
             id,
             lead_status
@@ -369,7 +374,10 @@ export class WhatsappLeadService {
           whatsapp_leads (
             whatsapp_status
           )
-        `);
+        `)
+        // IMPORTANT: Keep ordering consistent with the main Tab 4 query so
+        // the per-stage counts match the leads displayed in the table.
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching leads for stage counts:', error);
@@ -380,18 +388,14 @@ export class WhatsappLeadService {
       let notInCrmCount = 0;
 
       (allLeads || []).forEach((lead: any) => {
-        const whatsappStatus = lead.whatsapp_leads?.whatsapp_status || 'not_exported';
-        
-        // Only count leads that are not exported
-        if (whatsappStatus === 'not_exported') {
-          if (!lead.crm_leads?.id) {
-            // Lead not in CRM
-            notInCrmCount++;
-          } else {
-            // Lead in CRM with status
-            const leadStatus = lead.crm_leads.lead_status;
-            stageCounts[leadStatus] = (stageCounts[leadStatus] || 0) + 1;
-          }
+        // Normalize nested relation which can be an array
+        const crm = Array.isArray(lead.crm_leads) ? lead.crm_leads[0] : lead.crm_leads;
+        // Count ALL leads regardless of whatsapp/export status
+        if (!crm?.id) {
+          notInCrmCount++;
+        } else {
+          const leadStatus = crm.lead_status;
+          stageCounts[leadStatus] = (stageCounts[leadStatus] || 0) + 1;
         }
       });
 
@@ -414,6 +418,32 @@ export class WhatsappLeadService {
     console.log(`📤 Exporting ${sessionIds.length} leads...`);
     
     try {
+      // First, validate that all selected leads are eligible for export
+      const { data: existingLeads, error: validationError } = await supabase
+        .from('whatsapp_leads')
+        .select('session_id, whatsapp_status')
+        .in('session_id', sessionIds);
+
+      if (validationError) {
+        console.error('Error validating leads for export:', validationError);
+        throw validationError;
+      }
+
+      // Check if any leads are already exported or have invalid status
+      const invalidLeads = existingLeads?.filter(lead => lead.whatsapp_status !== 'not_exported') || [];
+      if (invalidLeads.length > 0) {
+        const invalidSessionIds = invalidLeads.map(lead => lead.session_id);
+        throw new Error(`Cannot export leads that are already exported or have invalid status: ${invalidSessionIds.join(', ')}`);
+      }
+
+      // Check if any session IDs don't have WhatsApp lead records
+      const existingSessionIds = existingLeads?.map(lead => lead.session_id) || [];
+      const missingSessionIds = sessionIds.filter(id => !existingSessionIds.includes(id));
+      if (missingSessionIds.length > 0) {
+        throw new Error(`Cannot export leads that don't have WhatsApp records: ${missingSessionIds.join(', ')}`);
+      }
+
+      // Proceed with export
       const { error } = await supabase
         .from('whatsapp_leads')
         .update({
@@ -439,22 +469,42 @@ export class WhatsappLeadService {
   static async updateWhatsappLeadStatus(
     sessionId: string, 
     newStatus: WhatsappStatus, 
-    notes?: string
+    notes?: string,
+    _updatedBy?: string
   ): Promise<void> {
     console.log(`🔄 Updating WhatsApp lead status: ${sessionId} to ${newStatus}`);
     
     try {
+      // Get current status for audit trail
+      const { data: currentLead, error: fetchError } = await supabase
+        .from('whatsapp_leads')
+        .select('whatsapp_status, notes')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching current lead status:', fetchError);
+        throw fetchError;
+      }
+
       const updateData: any = {
         whatsapp_status: newStatus,
+        updated_at: new Date().toISOString(),
       };
 
       if (newStatus === 'message_sent') {
         updateData.last_message_date = new Date().toISOString();
       }
 
-      if (notes) {
-        updateData.notes = notes;
-      }
+      // Enhanced notes with audit trail
+      const auditNote = `Status changed from '${currentLead?.whatsapp_status}' to '${newStatus}' on ${new Date().toISOString()}`;
+      const combinedNotes = [
+        currentLead?.notes,
+        notes,
+        auditNote
+      ].filter(Boolean).join(' | ');
+
+      updateData.notes = combinedNotes;
 
       const { error } = await supabase
         .from('whatsapp_leads')
@@ -466,7 +516,7 @@ export class WhatsappLeadService {
         throw error;
       }
 
-      console.log(`✅ Updated WhatsApp lead status: ${sessionId}`);
+      console.log(`✅ Updated WhatsApp lead status: ${sessionId} (${currentLead?.whatsapp_status} → ${newStatus})`);
     } catch (error) {
       console.error('Error in updateWhatsappLeadStatus:', error);
       throw error;
@@ -482,17 +532,47 @@ export class WhatsappLeadService {
     console.log(`🔄 Bulk updating ${sessionIds.length} WhatsApp lead statuses to ${newStatus}`);
     
     try {
+      // Validate that all leads exist and have appropriate status for the update
+      const { data: existingLeads, error: validationError } = await supabase
+        .from('whatsapp_leads')
+        .select('session_id, whatsapp_status')
+        .in('session_id', sessionIds);
+
+      if (validationError) {
+        console.error('Error validating leads for status update:', validationError);
+        throw validationError;
+      }
+
+      // Check if any session IDs don't have WhatsApp lead records
+      const existingSessionIds = existingLeads?.map(lead => lead.session_id) || [];
+      const missingSessionIds = sessionIds.filter(id => !existingSessionIds.includes(id));
+      if (missingSessionIds.length > 0) {
+        throw new Error(`Cannot update leads that don't have WhatsApp records: ${missingSessionIds.join(', ')}`);
+      }
+
+      // Validate status transitions
+      if (newStatus === 'message_sent') {
+        // Can only mark as 'message_sent' if currently 'exported'
+        const invalidLeads = existingLeads?.filter(lead => lead.whatsapp_status !== 'exported') || [];
+        if (invalidLeads.length > 0) {
+          const invalidSessionIds = invalidLeads.map(lead => lead.session_id);
+          throw new Error(`Can only mark 'exported' leads as 'message_sent'. Invalid leads: ${invalidSessionIds.join(', ')}`);
+        }
+      }
+
       const updateData: any = {
         whatsapp_status: newStatus,
+        updated_at: new Date().toISOString(),
       };
 
       if (newStatus === 'message_sent') {
         updateData.last_message_date = new Date().toISOString();
       }
 
-      if (notes) {
-        updateData.notes = notes;
-      }
+      // Enhanced notes with audit trail for bulk updates
+      const auditNote = `Bulk status update to '${newStatus}' on ${new Date().toISOString()} (${sessionIds.length} leads)`;
+      const combinedNotes = notes ? `${notes} | ${auditNote}` : auditNote;
+      updateData.notes = combinedNotes;
 
       const { error } = await supabase
         .from('whatsapp_leads')

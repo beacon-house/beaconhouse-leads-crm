@@ -72,7 +72,23 @@ const WhatsappOperationsView: React.FC = () => {
       setLeadCounts(counts);
     } catch (error) {
       console.error('Error fetching WhatsApp leads:', error);
-      setError('Failed to fetch WhatsApp leads. Please try again.');
+      
+      // Enhanced error handling with specific error messages
+      let errorMessage = 'Failed to fetch WhatsApp leads. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please check your access rights.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else {
+          errorMessage = `Failed to fetch leads: ${error.message}`;
+        }
+      }
+      
+      setError(errorMessage);
       setLeads([]);
     } finally {
       setIsLoading(false);

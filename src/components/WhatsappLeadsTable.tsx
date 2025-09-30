@@ -38,6 +38,18 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
   const canExport = isExportTab && selectedLeadIds.size > 0;
   const canUpdateStatus = activeTab === 'exported_leads' && selectedLeadIds.size > 0;
 
+  // Determine if a lead is eligible for export (used in Tab 4: filter_by_stage)
+  const isExportEligible = (lead: WhatsappLead): boolean => {
+    if (activeTab !== 'filter_by_stage') return true; // Tabs 1-3 already pre-filter eligible leads
+    const isQualifiedCategory = !!lead.lead_category && ['bch', 'lum-l1', 'lum-l2'].includes(lead.lead_category);
+    const hasWhatsappRecord = !!lead.whatsapp_id;
+    const isNotExported = lead.whatsapp_status === 'not_exported';
+    return isQualifiedCategory && hasWhatsappRecord && isNotExported;
+  };
+
+  // Eligible leads subset for select-all behavior (Tab 4 only)
+  const eligibleLeads = activeTab === 'filter_by_stage' ? leads.filter(isExportEligible) : leads;
+
   // Function to check if a lead appears in other tabs (for overlap indicators)
   const getLeadOverlapTabs = (lead: WhatsappLead): string[] => {
     if (activeTab !== 'filter_by_stage') return [];
@@ -65,6 +77,11 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
       }
     }
     
+    // Check if lead appears in Tab 5: Exported Leads
+    if (lead.whatsapp_status === 'exported' || lead.whatsapp_status === 'message_sent') {
+      overlapTabs.push('Exported Leads');
+    }
+    
     return overlapTabs;
   };
   const handleSelectLead = (sessionId: string, isSelected: boolean) => {
@@ -81,7 +98,7 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
 
   const handleSelectAllLeads = (isSelected: boolean) => {
     if (isSelected) {
-      setSelectedLeadIds(new Set(leads.map(lead => lead.session_id)));
+      setSelectedLeadIds(new Set(eligibleLeads.map(lead => lead.session_id)));
     } else {
       setSelectedLeadIds(new Set());
     }
@@ -126,7 +143,23 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
       console.log(`✅ Successfully exported ${selectedLeadIds.size} leads`);
     } catch (error) {
       console.error('Error exporting leads:', error);
-      alert('Failed to export leads. Please try again.');
+      
+      // Enhanced error handling with specific error messages
+      let errorMessage = 'Failed to export leads. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('already exported')) {
+          errorMessage = 'Some leads have already been exported. Please refresh and try again.';
+        } else if (error.message.includes('don\'t have WhatsApp records')) {
+          errorMessage = 'Some leads are missing WhatsApp records. Please contact support.';
+        } else if (error.message.includes('invalid status')) {
+          errorMessage = 'Some leads have invalid status. Please refresh and try again.';
+        } else {
+          errorMessage = `Export failed: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsExporting(false);
     }
@@ -160,7 +193,23 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
       console.log(`✅ Successfully updated ${selectedLeadIds.size} lead statuses`);
     } catch (error) {
       console.error('Error updating lead statuses:', error);
-      alert('Failed to update lead statuses. Please try again.');
+      
+      // Enhanced error handling with specific error messages
+      let errorMessage = 'Failed to update lead statuses. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('don\'t have WhatsApp records')) {
+          errorMessage = 'Some leads are missing WhatsApp records. Please contact support.';
+        } else if (error.message.includes('Can only mark \'exported\' leads')) {
+          errorMessage = 'Can only mark exported leads as message sent. Please check lead statuses.';
+        } else if (error.message.includes('Invalid leads')) {
+          errorMessage = 'Some leads have invalid status for this operation. Please refresh and try again.';
+        } else {
+          errorMessage = `Status update failed: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -174,6 +223,8 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
         return 'Leads who booked counseling within 5 days of form submission. Send single congratulatory message.';
       case 'call_booked_more_5_days':
         return 'Leads who booked counseling more than 5 days after form submission. Send congratulatory + reminder sequence.';
+      case 'filter_by_stage':
+        return 'All leads across CRM stages. Select stages to filter. Only qualified, not-exported leads can be selected for export.';
       case 'exported_leads':
         return 'Leads that have been exported for WhatsApp campaigns. Update message status after sending campaigns.';
     }
@@ -190,8 +241,8 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
     }
   };
 
-  const allLeadsSelected = leads.length > 0 && leads.every(lead => selectedLeadIds.has(lead.session_id));
-  const someLeadsSelected = leads.some(lead => selectedLeadIds.has(lead.session_id));
+  const allLeadsSelected = eligibleLeads.length > 0 && eligibleLeads.every(lead => selectedLeadIds.has(lead.session_id));
+  const someLeadsSelected = eligibleLeads.some(lead => selectedLeadIds.has(lead.session_id));
 
   if (isLoading) {
     return (
@@ -284,7 +335,8 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
                 <th className="w-12 px-4 py-3 text-left">
                   <div 
                     onClick={() => handleSelectAllLeads(!allLeadsSelected)}
-                    className="cursor-pointer"
+                    className={`cursor-pointer ${activeTab === 'filter_by_stage' && eligibleLeads.length === 0 ? 'pointer-events-none opacity-50' : ''}`}
+                    title={activeTab === 'filter_by_stage' && eligibleLeads.length === 0 ? 'No export-eligible leads on this page' : ''}
                   >
                     {allLeadsSelected ? (
                       <CheckSquare className="w-5 h-5 text-blue-600" />
@@ -335,8 +387,12 @@ const WhatsappLeadsTable: React.FC<WhatsappLeadsTableProps> = ({
                 >
                   <td className="w-12 px-4 py-4">
                     <div 
-                      onClick={() => handleSelectLead(lead.session_id, !selectedLeadIds.has(lead.session_id))}
-                      className="cursor-pointer"
+                      onClick={() => {
+                        if (!isExportEligible(lead)) return;
+                        handleSelectLead(lead.session_id, !selectedLeadIds.has(lead.session_id));
+                      }}
+                      className={`cursor-pointer ${activeTab === 'filter_by_stage' && !isExportEligible(lead) ? 'pointer-events-none opacity-50' : ''}`}
+                      title={activeTab === 'filter_by_stage' && !isExportEligible(lead) ? 'View only (not exportable)' : ''}
                     >
                       {selectedLeadIds.has(lead.session_id) ? (
                         <CheckSquare className="w-5 h-5 text-blue-600" />
